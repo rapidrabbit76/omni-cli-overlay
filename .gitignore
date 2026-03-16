@@ -41,9 +41,8 @@ Desktop.ini
 *.tmp
 *.bak
 
-# Auto-generated protocol bindings (regenerate via `codex app-server generate-ts`)
 src/shared/codex-protocol/
-
 .omc/
 .omx/
 .sisyphus/
+docs
