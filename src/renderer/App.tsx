@@ -97,6 +97,7 @@ export default function App() {
   const isExpanded = useSessionStore((s) => s.isExpanded)
   const isRunning = activeTabStatus === 'running' || activeTabStatus === 'connecting'
 
+
   // Layout dimensions — expandedUI widens and heightens the panel
   const contentWidth = expandedUI ? 700 : spacing.contentWidth
   const cardExpandedWidth = expandedUI ? 700 : 460
