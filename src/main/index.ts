@@ -24,8 +24,11 @@ let currentShortcutSettings: ShortcutSettings = DEFAULT_SHORTCUT_SETTINGS
 const controlPlane = new ControlPlane()
 
 const BAR_WIDTH = 1040
-const PILL_HEIGHT = 720
+const PILL_HEIGHT = 620
 const PILL_BOTTOM_MARGIN = 24
+
+let lastWindowX: number | null = null
+let lastWindowY: number | null = null
 
 function broadcast(channel: string, ...args: unknown[]): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -79,6 +82,13 @@ function createWindow(): void {
 
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   mainWindow.setAlwaysOnTop(true, 'screen-saver')
+
+  mainWindow.on('moved', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    const [x, y] = mainWindow.getPosition()
+    lastWindowX = x
+    lastWindowY = y
+  })
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
@@ -152,9 +162,12 @@ function showWindow(): void {
   const display = screen.getDisplayNearestPoint(cursor)
   const { width: sw, height: sh } = display.workAreaSize
   const { x: dx, y: dy } = display.workArea
+  const defaultX = dx + Math.round((sw - BAR_WIDTH) / 2)
+  const defaultY = dy + sh - PILL_HEIGHT - PILL_BOTTOM_MARGIN
+  const useLastPos = lastWindowX != null && lastWindowY != null
   mainWindow.setBounds({
-    x: dx + Math.round((sw - BAR_WIDTH) / 2),
-    y: dy + sh - PILL_HEIGHT - PILL_BOTTOM_MARGIN,
+    x: useLastPos ? lastWindowX! : defaultX,
+    y: useLastPos ? lastWindowY! : defaultY,
     width: BAR_WIDTH,
     height: PILL_HEIGHT,
   })
@@ -274,18 +287,39 @@ ipcMain.handle(IPC.LOAD_SESSION, async (_e, arg: { sessionId: string } | string)
       try {
         const obj = JSON.parse(line)
         const timestamp = obj?.timestamp ? new Date(obj.timestamp).getTime() : Date.now()
-        if (obj.type === 'event_msg' && obj.payload?.role === 'user') {
-          const text = typeof obj.payload?.text === 'string' ? obj.payload.text : ''
+        const payload = obj?.payload
+
+        if (obj.type === 'response_item' && payload?.type === 'message') {
+          const role = payload.role
+          if (role === 'developer') return
+          const contentArr = Array.isArray(payload.content) ? payload.content : []
+          const text = contentArr
+            .filter((c: Record<string, unknown>) => c.type === 'input_text' || c.type === 'output_text')
+            .map((c: Record<string, unknown>) => c.text || '')
+            .join('\n')
+            .trim()
+          if (text && (role === 'user' || role === 'assistant')) {
+            messages.push({ role, content: text, timestamp })
+          }
+        }
+
+        if (obj.type === 'event_msg' && payload?.role === 'user') {
+          const text = typeof payload?.text === 'string' ? payload.text : ''
           if (text) messages.push({ role: 'user', content: text, timestamp })
         }
-        if (obj.type === 'response_item') {
-          const item = obj.payload?.item
-          if (item?.type === 'agent_message' && typeof item.text === 'string' && item.text.trim()) {
+
+        if (obj.type === 'response_item' && payload?.item) {
+          const item = payload.item
+          if (item.type === 'agent_message' && typeof item.text === 'string' && item.text.trim()) {
             messages.push({ role: 'assistant', content: item.text, timestamp })
           }
-          if (item?.type === 'command_execution') {
+          if (item.type === 'command_execution') {
             messages.push({ role: 'tool', content: item.aggregated_output || '', toolName: 'Shell', timestamp })
           }
+        }
+
+        if (obj.type === 'response_item' && payload?.type === 'function_call') {
+          messages.push({ role: 'tool', content: payload.arguments || '', toolName: payload.name || 'Tool', timestamp })
         }
       } catch {}
     })
