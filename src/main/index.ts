@@ -17,6 +17,7 @@ function log(msg: string): void {
 }
 
 let mainWindow: BrowserWindow | null = null
+let settingsWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let screenshotCounter = 0
 let currentShortcutSettings: ShortcutSettings = DEFAULT_SHORTCUT_SETTINGS
@@ -82,7 +83,7 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
     mainWindow?.setIgnoreMouseEvents(true, { forward: true })
-    if (process.env.ELECTRON_RENDERER_URL) {
+    if (process.env.OCO_DEBUG === '1') {
       mainWindow?.webContents.openDevTools({ mode: 'detach' })
     }
   })
@@ -100,6 +101,48 @@ function createWindow(): void {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function createSettingsWindow(): void {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus()
+    return
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 520,
+    height: 600,
+    title: 'Settings',
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 12, y: 12 },
+    backgroundColor: '#212121',
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    movable: true,
+    minWidth: 520,
+    minHeight: 400,
+    maxWidth: 800,
+    maxHeight: 900,
+    icon: join(__dirname, '../../resources/icon.icns'),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
+  })
+
+  if (process.env.ELECTRON_RENDERER_URL) {
+    const rendererUrl = process.env.ELECTRON_RENDERER_URL
+    const normalizedBase = rendererUrl.endsWith('/') ? rendererUrl : `${rendererUrl}/`
+    settingsWindow.loadURL(new URL('settings.html', normalizedBase).toString())
+  } else {
+    settingsWindow.loadFile(join(__dirname, '../renderer/settings.html'))
   }
 }
 
@@ -132,6 +175,14 @@ ipcMain.on(IPC.SET_WINDOW_WIDTH, () => {})
 ipcMain.handle(IPC.ANIMATE_HEIGHT, () => {})
 ipcMain.on(IPC.HIDE_WINDOW, () => mainWindow?.hide())
 ipcMain.handle(IPC.IS_VISIBLE, () => mainWindow?.isVisible() ?? false)
+
+ipcMain.on(IPC.DRAG_MOVE, (event, deltaX: number, deltaY: number) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed()) return
+  const [x, y] = win.getPosition()
+  win.setPosition(x + deltaX, y + deltaY)
+})
+
 ipcMain.on(IPC.SET_IGNORE_MOUSE_EVENTS, (event, ignore: boolean, options?: { forward?: boolean }) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(ignore, options || {})
@@ -408,6 +459,7 @@ ipcMain.handle(IPC.OPEN_IN_TERMINAL, (_event, arg: string | null | { sessionId?:
 })
 
 ipcMain.handle(IPC.GET_THEME, () => ({ isDark: nativeTheme.shouldUseDarkColors }))
+ipcMain.on(IPC.OPEN_SETTINGS, () => createSettingsWindow())
 ipcMain.handle(IPC.GET_SHORTCUT_SETTINGS, () => currentShortcutSettings)
 ipcMain.handle(IPC.SET_SHORTCUT_SETTINGS, (_event, settings: ShortcutSettings) => {
   const previous = currentShortcutSettings
@@ -443,6 +495,10 @@ app.whenReady().then(async () => {
     if (shortcutRegistration.ok) saveShortcutSettings(currentShortcutSettings)
   }
 
+  globalShortcut.register('CommandOrControl+,', () => {
+    createSettingsWindow()
+  })
+
   const trayIconPath = join(__dirname, '../../resources/trayTemplate.png')
   const trayIcon = nativeImage.createFromPath(trayIconPath).resize({ height: 16 })
   trayIcon.setTemplateImage(true)
@@ -451,6 +507,7 @@ app.whenReady().then(async () => {
   tray.on('click', () => toggleWindow())
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Show OCO', click: () => showWindow() },
+    { label: 'Settings', accelerator: 'CommandOrControl+,', click: () => createSettingsWindow() },
     { label: 'Quit', click: () => app.quit() },
   ]))
 

@@ -35,6 +35,7 @@ export interface OcoAPI {
   loadSession(sessionId: string, projectPath?: string): Promise<SessionLoadMessage[]>
   getTheme(): Promise<{ isDark: boolean }>
   onThemeChange(callback: (isDark: boolean) => void): () => void
+  openSettings(): void
   getShortcutSettings(): Promise<ShortcutSettings>
   setShortcutSettings(settings: ShortcutSettings): Promise<ShortcutSettingsUpdateResult>
   resizeHeight(height: number): void
@@ -42,6 +43,7 @@ export interface OcoAPI {
   animateHeight(from: number, to: number, durationMs: number): Promise<void>
   hideWindow(): void
   isVisible(): Promise<boolean>
+  dragMove(deltaX: number, deltaY: number): void
   setIgnoreMouseEvents(ignore: boolean, options?: { forward?: boolean }): void
   onEvent(callback: (tabId: string, event: NormalizedEvent) => void): () => void
   onTabStatusChange(callback: (tabId: string, newStatus: string, oldStatus: string) => void): () => void
@@ -71,6 +73,7 @@ const api: OcoAPI = {
   listSessions: (projectPath) => ipcRenderer.invoke(IPC.LIST_SESSIONS, projectPath),
   loadSession: (sessionId, projectPath) => ipcRenderer.invoke(IPC.LOAD_SESSION, { sessionId, projectPath }),
   getTheme: () => ipcRenderer.invoke(IPC.GET_THEME),
+  openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),
   getShortcutSettings: () => ipcRenderer.invoke(IPC.GET_SHORTCUT_SETTINGS),
   setShortcutSettings: (settings) => ipcRenderer.invoke(IPC.SET_SHORTCUT_SETTINGS, settings),
   onThemeChange: (callback) => {
@@ -82,6 +85,7 @@ const api: OcoAPI = {
   animateHeight: (from, to, durationMs) => ipcRenderer.invoke(IPC.ANIMATE_HEIGHT, { from, to, durationMs }),
   hideWindow: () => ipcRenderer.send(IPC.HIDE_WINDOW),
   isVisible: () => ipcRenderer.invoke(IPC.IS_VISIBLE),
+  dragMove: (deltaX, deltaY) => ipcRenderer.send(IPC.DRAG_MOVE, deltaX, deltaY),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send(IPC.SET_IGNORE_MOUSE_EVENTS, ignore, options || {}),
   setWindowWidth: (width) => ipcRenderer.send(IPC.SET_WINDOW_WIDTH, width),
   onEvent: (callback) => {

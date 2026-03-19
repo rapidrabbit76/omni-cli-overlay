@@ -177,8 +177,11 @@ export const IPC = {
 
   GET_THEME: 'oco:get-theme',
   THEME_CHANGED: 'oco:theme-changed',
+  OPEN_SETTINGS: 'oco:open-settings',
   GET_SHORTCUT_SETTINGS: 'oco:get-shortcut-settings',
   SET_SHORTCUT_SETTINGS: 'oco:set-shortcut-settings',
+
+  DRAG_MOVE: 'oco:drag-move',
 
   STREAM_EVENT: 'oco:stream-event',
   RUN_COMPLETE: 'oco:run-complete',

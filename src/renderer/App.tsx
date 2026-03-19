@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Paperclip, Camera } from '@phosphor-icons/react'
 import { TabStrip } from './components/TabStrip'
@@ -22,6 +22,7 @@ export default function App() {
   const colors = useColors()
   const setSystemTheme = useThemeStore((s) => s.setSystemTheme)
   const expandedUI = useThemeStore((s) => s.expandedUI)
+  const overlayOpacity = useThemeStore((s) => s.overlayOpacity)
 
   // ─── Theme initialization ───
   useEffect(() => {
@@ -56,12 +57,14 @@ export default function App() {
     })
   }, [])
 
-  // OS-level click-through (RAF-throttled to avoid per-pixel IPC)
+  const isDraggingRef = useRef(false)
+
   useEffect(() => {
     if (!window.oco?.setIgnoreMouseEvents) return
     let lastIgnored: boolean | null = null
 
     const onMouseMove = (e: MouseEvent) => {
+      if (isDraggingRef.current) return
       const el = document.elementFromPoint(e.clientX, e.clientY)
       const isUI = !!(el && el.closest('[data-oco-ui]'))
       const shouldIgnore = !isUI
@@ -76,6 +79,7 @@ export default function App() {
     }
 
     const onMouseLeave = () => {
+      if (isDraggingRef.current) return
       if (lastIgnored !== true) {
         lastIgnored = true
         window.oco.setIgnoreMouseEvents(true, { forward: true })
@@ -114,7 +118,7 @@ export default function App() {
 
   return (
     <PopoverLayerProvider>
-      <div className="flex flex-col justify-end h-full" style={{ background: 'transparent' }}>
+      <div className="flex flex-col justify-end h-full" style={{ background: 'transparent', opacity: overlayOpacity }}>
 
         {/* ─── 460px content column, centered. Circles overflow left. ─── */}
         <div style={{ width: contentWidth, position: 'relative', margin: '0 auto', transition: 'width 0.26s cubic-bezier(0.4, 0, 0.1, 1)' }}>
@@ -123,7 +127,32 @@ export default function App() {
 
           <motion.div
             data-oco-ui
-            className="overflow-hidden flex flex-col drag-region"
+            className="overflow-hidden flex flex-col"
+            onMouseDown={(e: React.MouseEvent) => {
+              const target = e.target as HTMLElement
+              if (target.closest('button, input, select, textarea, [data-no-drag]')) return
+              e.preventDefault()
+              isDraggingRef.current = true
+              window.oco.setIgnoreMouseEvents(false)
+              let lastX = e.screenX
+              let lastY = e.screenY
+              const onMove = (ev: MouseEvent) => {
+                const dx = ev.screenX - lastX
+                const dy = ev.screenY - lastY
+                if (dx !== 0 || dy !== 0) {
+                  window.oco.dragMove(dx, dy)
+                  lastX = ev.screenX
+                  lastY = ev.screenY
+                }
+              }
+              const onUp = () => {
+                isDraggingRef.current = false
+                document.removeEventListener('mousemove', onMove)
+                document.removeEventListener('mouseup', onUp)
+              }
+              document.addEventListener('mousemove', onMove)
+              document.addEventListener('mouseup', onUp)
+            }}
             animate={{
               width: isExpanded ? cardExpandedWidth : cardCollapsedWidth,
               marginBottom: isExpanded ? 10 : -14,
