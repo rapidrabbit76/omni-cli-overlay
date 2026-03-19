@@ -277,12 +277,14 @@ interface ThemeState {
   themeMode: ThemeMode
   soundEnabled: boolean
   expandedUI: boolean
+  overlayOpacity: number
   /** OS-reported dark mode — used when themeMode is 'system' */
   _systemIsDark: boolean
   setIsDark: (isDark: boolean) => void
   setThemeMode: (mode: ThemeMode) => void
   setSoundEnabled: (enabled: boolean) => void
   setExpandedUI: (expanded: boolean) => void
+  setOverlayOpacity: (opacity: number) => void
   /** Called by OS theme change listener — updates system value */
   setSystemTheme: (isDark: boolean) => void
 }
@@ -293,7 +295,7 @@ function camelToKebab(s: string): string {
 }
 
 /** Sync all JS design tokens to CSS custom properties on :root */
-function syncTokensToCss(tokens: ColorPalette): void {
+export function syncTokensToCss(tokens: ColorPalette): void {
   const style = document.documentElement.style
   for (const [key, value] of Object.entries(tokens)) {
     style.setProperty(`--oco-${camelToKebab(key)}`, value)
@@ -308,33 +310,39 @@ function applyTheme(isDark: boolean): void {
 
 const SETTINGS_KEY = 'oco-settings'
 
-function loadSettings(): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean } {
+function loadSettings(): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number } {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        themeMode: ['light', 'dark'].includes(parsed.themeMode) ? parsed.themeMode : 'dark',
+        themeMode: ['system', 'light', 'dark'].includes(parsed.themeMode) ? parsed.themeMode : 'dark',
         soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
         expandedUI: typeof parsed.expandedUI === 'boolean' ? parsed.expandedUI : false,
+        overlayOpacity: typeof parsed.overlayOpacity === 'number' ? parsed.overlayOpacity : 1,
       }
     }
   } catch {}
-  return { themeMode: 'dark', soundEnabled: true, expandedUI: false }
+  return { themeMode: 'dark', soundEnabled: true, expandedUI: false, overlayOpacity: 1 }
 }
 
-function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean }): void {
+function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number }): void {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {}
 }
 
 // Always start in compact UI mode on launch.
 const saved = { ...loadSettings(), expandedUI: false }
 
+function currentSavePayload(g: () => ThemeState) {
+  return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity }
+}
+
 export const useThemeStore = create<ThemeState>((set, get) => ({
   isDark: saved.themeMode === 'dark' ? true : saved.themeMode === 'light' ? false : true,
   themeMode: saved.themeMode,
   soundEnabled: saved.soundEnabled,
   expandedUI: saved.expandedUI,
+  overlayOpacity: saved.overlayOpacity,
   _systemIsDark: true,
   setIsDark: (isDark) => {
     set({ isDark })
@@ -344,19 +352,22 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const resolved = mode === 'system' ? get()._systemIsDark : mode === 'dark'
     set({ themeMode: mode, isDark: resolved })
     applyTheme(resolved)
-    saveSettings({ themeMode: mode, soundEnabled: get().soundEnabled, expandedUI: get().expandedUI })
+    saveSettings({ ...currentSavePayload(get), themeMode: mode })
   },
   setSoundEnabled: (enabled) => {
     set({ soundEnabled: enabled })
-    saveSettings({ themeMode: get().themeMode, soundEnabled: enabled, expandedUI: get().expandedUI })
+    saveSettings({ ...currentSavePayload(get), soundEnabled: enabled })
   },
   setExpandedUI: (expanded) => {
     set({ expandedUI: expanded })
-    saveSettings({ themeMode: get().themeMode, soundEnabled: get().soundEnabled, expandedUI: expanded })
+    saveSettings({ ...currentSavePayload(get), expandedUI: expanded })
+  },
+  setOverlayOpacity: (opacity) => {
+    set({ overlayOpacity: opacity })
+    saveSettings({ ...currentSavePayload(get), overlayOpacity: opacity })
   },
   setSystemTheme: (isDark) => {
     set({ _systemIsDark: isDark })
-    // Only apply if following system
     if (get().themeMode === 'system') {
       set({ isDark })
       applyTheme(isDark)
@@ -366,6 +377,35 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
 // Initialize CSS vars with saved theme
 syncTokensToCss(saved.themeMode === 'light' ? lightColors : darkColors)
+
+if (typeof window !== 'undefined') {
+  const globalWindow = window as Window & { __ocoThemeStorageSyncBound?: boolean }
+  if (!globalWindow.__ocoThemeStorageSyncBound) {
+    globalWindow.__ocoThemeStorageSyncBound = true
+    window.addEventListener('storage', (event) => {
+      if (event.key !== SETTINGS_KEY || !event.newValue) return
+
+      try {
+        const parsed = JSON.parse(event.newValue)
+        const nextThemeMode: ThemeMode = ['system', 'light', 'dark'].includes(parsed.themeMode) ? parsed.themeMode : 'dark'
+        const nextSoundEnabled = typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true
+        const nextExpandedUI = typeof parsed.expandedUI === 'boolean' ? parsed.expandedUI : false
+        const nextOpacity = typeof parsed.overlayOpacity === 'number' ? parsed.overlayOpacity : 1
+        const state = useThemeStore.getState()
+        const nextIsDark = nextThemeMode === 'system' ? state._systemIsDark : nextThemeMode === 'dark'
+
+        useThemeStore.setState({
+          themeMode: nextThemeMode,
+          isDark: nextIsDark,
+          soundEnabled: nextSoundEnabled,
+          expandedUI: nextExpandedUI,
+          overlayOpacity: nextOpacity,
+        })
+        applyTheme(nextIsDark)
+      } catch {}
+    })
+  }
+}
 
 /** Reactive hook — returns the active color palette */
 export function useColors(): ColorPalette {

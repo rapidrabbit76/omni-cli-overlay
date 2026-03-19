@@ -71,6 +71,34 @@ const nextMsgId = () => `msg-${++msgCounter}`
 const notificationAudio = new Audio(notificationSrc)
 notificationAudio.volume = 1.0
 
+const SHORTCUT_SETTINGS_KEY = 'oco-shortcut-settings'
+
+function normalizeShortcutValue(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function readShortcutSettingsCache(): ShortcutSettings | null {
+  try {
+    const raw = localStorage.getItem(SHORTCUT_SETTINGS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return {
+      primaryShortcut: normalizeShortcutValue(parsed.primaryShortcut),
+      secondaryShortcut: normalizeShortcutValue(parsed.secondaryShortcut),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeShortcutSettingsCache(settings: ShortcutSettings): void {
+  try {
+    localStorage.setItem(SHORTCUT_SETTINGS_KEY, JSON.stringify(settings))
+  } catch {}
+}
+
 async function playNotificationIfHidden(): Promise<void> {
   if (!useThemeStore.getState().soundEnabled) return
   try {
@@ -105,15 +133,32 @@ function makeLocalTab(): TabState {
 }
 
 const initialTab = makeLocalTab()
+const cachedShortcutSettings = readShortcutSettingsCache()
+
+function readAppDefaults(): { model: string | null; reasoning: string | null } {
+  try {
+    const raw = localStorage.getItem('oco-app-settings')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return {
+        model: typeof parsed.defaultModel === 'string' ? parsed.defaultModel : null,
+        reasoning: typeof parsed.defaultReasoning === 'string' ? parsed.defaultReasoning : null,
+      }
+    }
+  } catch {}
+  return { model: null, reasoning: null }
+}
+
+const appDefaults = readAppDefaults()
 
 export const useSessionStore = create<State>((set, get) => ({
   tabs: [initialTab],
   activeTabId: initialTab.id,
   isExpanded: false,
   staticInfo: null,
-  preferredModel: null,
-  preferredReasoning: null,
-  shortcutSettings: null,
+  preferredModel: appDefaults.model,
+  preferredReasoning: appDefaults.reasoning,
+  shortcutSettings: cachedShortcutSettings,
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,
 
@@ -127,6 +172,7 @@ export const useSessionStore = create<State>((set, get) => ({
   loadShortcutSettings: async () => {
     try {
       const settings = await window.oco.getShortcutSettings()
+      writeShortcutSettingsCache(settings)
       set({ shortcutSettings: settings, shortcutSettingsError: null })
     } catch (err) {
       set({ shortcutSettingsError: err instanceof Error ? err.message : String(err) })
@@ -142,6 +188,7 @@ export const useSessionStore = create<State>((set, get) => ({
         shortcutSettingsError: result.ok ? null : (result.error || 'Failed to update shortcuts'),
         shortcutSettings: result.settings,
       })
+      writeShortcutSettingsCache(result.settings)
       return result.ok
     } catch (err) {
       set({ shortcutSettingsSaving: false, shortcutSettingsError: err instanceof Error ? err.message : String(err) })
@@ -439,3 +486,16 @@ export const useSessionStore = create<State>((set, get) => ({
     }))
   },
 }))
+
+if (typeof window !== 'undefined') {
+  const globalWindow = window as Window & { __ocoShortcutStorageSyncBound?: boolean }
+  if (!globalWindow.__ocoShortcutStorageSyncBound) {
+    globalWindow.__ocoShortcutStorageSyncBound = true
+    window.addEventListener('storage', (event) => {
+      if (event.key !== SHORTCUT_SETTINGS_KEY || !event.newValue) return
+      const settings = readShortcutSettingsCache()
+      if (!settings) return
+      useSessionStore.setState({ shortcutSettings: settings, shortcutSettingsError: null })
+    })
+  }
+}
