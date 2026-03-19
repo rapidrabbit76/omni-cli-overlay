@@ -10,20 +10,16 @@ import {
   Keyboard,
   MoonStars,
   Target,
-  TextAa,
   X,
 } from '@phosphor-icons/react'
 import { DEFAULT_SHORTCUT_SETTINGS } from '../../shared/types'
 import { AVAILABLE_MODELS, REASONING_LEVELS, useSessionStore } from '../stores/sessionStore'
 import { useColors, useThemeStore } from '../theme'
 
-const APP_SETTINGS_KEY = 'oco-app-settings'
-
 interface AppSettings {
   defaultModel: string
   defaultReasoning: string
   defaultDirectory: string
-  fontSize: 'small' | 'medium' | 'large'
   rememberPosition: boolean
 }
 
@@ -31,20 +27,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultModel: AVAILABLE_MODELS[0].id,
   defaultReasoning: REASONING_LEVELS[1].id,
   defaultDirectory: '~',
-  fontSize: 'medium',
   rememberPosition: false,
-}
-
-function loadAppSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem(APP_SETTINGS_KEY)
-    if (raw) return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) }
-  } catch {}
-  return { ...DEFAULT_APP_SETTINGS }
-}
-
-function saveAppSettings(settings: AppSettings): void {
-  try { localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings)) } catch {}
 }
 
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta'])
@@ -137,11 +120,20 @@ export default function SettingsPage() {
   const overlayOpacity = useThemeStore((s) => s.overlayOpacity)
   const setOverlayOpacity = useThemeStore((s) => s.setOverlayOpacity)
 
-  const [appSettings, setAppSettings] = useState<AppSettings>(loadAppSettings)
+  const [appSettings, setAppSettings] = useState<AppSettings>({ ...DEFAULT_APP_SETTINGS })
+
+  useEffect(() => {
+    window.oco.getAppSettings().then((raw) => {
+      setAppSettings((prev) => ({ ...prev, ...raw } as AppSettings))
+    }).catch(() => {})
+  }, [])
+
   const updateAppSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setAppSettings((prev) => {
       const next = { ...prev, [key]: value }
-      saveAppSettings(next)
+      window.oco.getAppSettings().then((current) => {
+        window.oco.setAppSettings({ ...current, ...next })
+      }).catch(() => {})
       return next
     })
   }
@@ -439,7 +431,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div className={rowClassName} style={rowBaseStyle}>
+          <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
             <div className="flex items-center gap-3">
               <Drop size={16} style={{ color: colors.textTertiary }} />
               <span className="text-[11px]">Overlay Opacity</span>
@@ -460,27 +452,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
-            <div className="flex items-center gap-3">
-              <TextAa size={16} style={{ color: colors.textTertiary }} />
-              <span className="text-[11px]">Font Size</span>
-            </div>
-            <select
-              value={appSettings.fontSize}
-              onChange={(e) => updateAppSetting('fontSize', e.target.value as AppSettings['fontSize'])}
-              className="h-7 rounded-md px-2 text-[10px] outline-none"
-              style={{
-                minWidth: 120,
-                background: colors.surfacePrimary,
-                color: colors.textPrimary,
-                border: `1px solid ${colors.containerBorder}`,
-              }}
-            >
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
-          </div>
         </div>
 
         <SectionHeader label="Shortcuts" color={colors.textTertiary} />
@@ -560,7 +531,7 @@ export default function SettingsPage() {
               <span className="text-[11px]">Version</span>
             </div>
             <span className="text-[10px]" style={{ color: colors.textSecondary }}>
-              0.1.0
+              2026.03.20
             </span>
           </div>
         </div>
