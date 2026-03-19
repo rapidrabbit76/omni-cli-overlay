@@ -74,6 +74,12 @@ export function TabStrip() {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.15 }}
                   onClick={() => selectTab(tab.id)}
+                  onMouseDown={(e: React.MouseEvent) => {
+                    if (e.button === 1 && tabs.length > 1) {
+                      e.preventDefault()
+                      closeTab(tab.id)
+                    }
+                  }}
                   className="group flex items-center gap-1.5 cursor-pointer select-none flex-shrink-0 max-w-[160px] transition-all duration-150"
                   style={{
                     background: isActive ? colors.tabActive : 'transparent',
