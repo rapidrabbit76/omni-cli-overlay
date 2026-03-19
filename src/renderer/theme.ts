@@ -308,30 +308,23 @@ function applyTheme(isDark: boolean): void {
   syncTokensToCss(isDark ? darkColors : lightColors)
 }
 
-const SETTINGS_KEY = 'oco-settings'
-
-function loadSettings(): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number } {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return {
-        themeMode: ['system', 'light', 'dark'].includes(parsed.themeMode) ? parsed.themeMode : 'dark',
-        soundEnabled: typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true,
-        expandedUI: typeof parsed.expandedUI === 'boolean' ? parsed.expandedUI : false,
-        overlayOpacity: typeof parsed.overlayOpacity === 'number' ? parsed.overlayOpacity : 1,
-      }
-    }
-  } catch {}
-  return { themeMode: 'dark', soundEnabled: true, expandedUI: false, overlayOpacity: 1 }
+function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number } {
+  return {
+    themeMode: ['system', 'light', 'dark'].includes(raw.themeMode as string) ? raw.themeMode as ThemeMode : 'dark',
+    soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
+    expandedUI: typeof raw.expandedUI === 'boolean' ? raw.expandedUI : false,
+    overlayOpacity: typeof raw.overlayOpacity === 'number' ? raw.overlayOpacity : 1,
+  }
 }
 
 function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number }): void {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)) } catch {}
+  if (!window.oco?.getAppSettings) return
+  window.oco.getAppSettings().then((current) => {
+    window.oco.setAppSettings({ ...current, ...s })
+  }).catch(() => {})
 }
 
-// Always start in compact UI mode on launch.
-const saved = { ...loadSettings(), expandedUI: false }
+const saved = { themeMode: 'dark' as ThemeMode, soundEnabled: true, expandedUI: false, overlayOpacity: 1 }
 
 function currentSavePayload(g: () => ThemeState) {
   return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity }
@@ -378,33 +371,37 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 // Initialize CSS vars with saved theme
 syncTokensToCss(saved.themeMode === 'light' ? lightColors : darkColors)
 
-if (typeof window !== 'undefined') {
-  const globalWindow = window as Window & { __ocoThemeStorageSyncBound?: boolean }
-  if (!globalWindow.__ocoThemeStorageSyncBound) {
-    globalWindow.__ocoThemeStorageSyncBound = true
-    window.addEventListener('storage', (event) => {
-      if (event.key !== SETTINGS_KEY || !event.newValue) return
-
-      try {
-        const parsed = JSON.parse(event.newValue)
-        const nextThemeMode: ThemeMode = ['system', 'light', 'dark'].includes(parsed.themeMode) ? parsed.themeMode : 'dark'
-        const nextSoundEnabled = typeof parsed.soundEnabled === 'boolean' ? parsed.soundEnabled : true
-        const nextExpandedUI = typeof parsed.expandedUI === 'boolean' ? parsed.expandedUI : false
-        const nextOpacity = typeof parsed.overlayOpacity === 'number' ? parsed.overlayOpacity : 1
-        const state = useThemeStore.getState()
-        const nextIsDark = nextThemeMode === 'system' ? state._systemIsDark : nextThemeMode === 'dark'
-
-        useThemeStore.setState({
-          themeMode: nextThemeMode,
-          isDark: nextIsDark,
-          soundEnabled: nextSoundEnabled,
-          expandedUI: nextExpandedUI,
-          overlayOpacity: nextOpacity,
-        })
-        applyTheme(nextIsDark)
-      } catch {}
+if (typeof window !== 'undefined' && window.oco?.onAppSettingsChanged) {
+  window.oco.onAppSettingsChanged((raw) => {
+    const next = parseThemeSettings(raw)
+    const state = useThemeStore.getState()
+    const nextIsDark = next.themeMode === 'system' ? state._systemIsDark : next.themeMode === 'dark'
+    useThemeStore.setState({
+      themeMode: next.themeMode,
+      isDark: nextIsDark,
+      soundEnabled: next.soundEnabled,
+      expandedUI: next.expandedUI,
+      overlayOpacity: next.overlayOpacity,
     })
-  }
+    applyTheme(nextIsDark)
+  })
+}
+
+export function initSettingsFromFile(): void {
+  if (!window.oco?.getAppSettings) return
+  window.oco.getAppSettings().then((raw) => {
+    const next = parseThemeSettings(raw)
+    const state = useThemeStore.getState()
+    const nextIsDark = next.themeMode === 'system' ? state._systemIsDark : next.themeMode === 'dark'
+    useThemeStore.setState({
+      themeMode: next.themeMode,
+      isDark: nextIsDark,
+      soundEnabled: next.soundEnabled,
+      expandedUI: false,
+      overlayOpacity: next.overlayOpacity,
+    })
+    applyTheme(nextIsDark)
+  }).catch(() => {})
 }
 
 /** Reactive hook — returns the active color palette */

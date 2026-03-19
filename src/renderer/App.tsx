@@ -8,8 +8,8 @@ import { StatusBar } from './components/StatusBar'
 import { PopoverLayerProvider } from './components/PopoverLayer'
 import { useCodexEvents } from './hooks/useCodexEvents'
 import { useHealthReconciliation } from './hooks/useHealthReconciliation'
-import { useSessionStore } from './stores/sessionStore'
-import { useColors, useThemeStore, spacing } from './theme'
+import { useSessionStore, initSessionDefaults } from './stores/sessionStore'
+import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme'
 
 const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
 
@@ -24,9 +24,9 @@ export default function App() {
   const expandedUI = useThemeStore((s) => s.expandedUI)
   const overlayOpacity = useThemeStore((s) => s.overlayOpacity)
 
-  // ─── Theme initialization ───
+  useEffect(() => { initSettingsFromFile(); initSessionDefaults() }, [])
+
   useEffect(() => {
-    // Get initial OS theme — setSystemTheme respects themeMode (system/light/dark)
     window.oco.getTheme().then(({ isDark }) => {
       setSystemTheme(isDark)
     }).catch(() => {})

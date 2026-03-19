@@ -135,29 +135,22 @@ function makeLocalTab(): TabState {
 const initialTab = makeLocalTab()
 const cachedShortcutSettings = readShortcutSettingsCache()
 
-function readAppDefaults(): { model: string | null; reasoning: string | null } {
-  try {
-    const raw = localStorage.getItem('oco-app-settings')
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      return {
-        model: typeof parsed.defaultModel === 'string' ? parsed.defaultModel : null,
-        reasoning: typeof parsed.defaultReasoning === 'string' ? parsed.defaultReasoning : null,
-      }
-    }
-  } catch {}
-  return { model: null, reasoning: null }
+export function initSessionDefaults(): void {
+  if (!window.oco?.getAppSettings) return
+  window.oco.getAppSettings().then((raw) => {
+    const model = typeof raw.defaultModel === 'string' ? raw.defaultModel : null
+    const reasoning = typeof raw.defaultReasoning === 'string' ? raw.defaultReasoning : null
+    useSessionStore.setState({ preferredModel: model, preferredReasoning: reasoning })
+  }).catch(() => {})
 }
-
-const appDefaults = readAppDefaults()
 
 export const useSessionStore = create<State>((set, get) => ({
   tabs: [initialTab],
   activeTabId: initialTab.id,
   isExpanded: false,
   staticInfo: null,
-  preferredModel: appDefaults.model,
-  preferredReasoning: appDefaults.reasoning,
+  preferredModel: null,
+  preferredReasoning: null,
   shortcutSettings: cachedShortcutSettings,
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,

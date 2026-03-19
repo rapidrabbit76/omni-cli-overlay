@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut, Tray, Menu, nativeImage, nativeTheme, shell } from 'electron'
 import { join } from 'path'
-import { existsSync, readdirSync, statSync, createReadStream, readFileSync } from 'fs'
+import { existsSync, readdirSync, statSync, createReadStream, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { createInterface } from 'readline'
 import { homedir } from 'os'
 import { execSync, execFile } from 'child_process'
@@ -188,6 +188,32 @@ ipcMain.on(IPC.SET_WINDOW_WIDTH, () => {})
 ipcMain.handle(IPC.ANIMATE_HEIGHT, () => {})
 ipcMain.on(IPC.HIDE_WINDOW, () => mainWindow?.hide())
 ipcMain.handle(IPC.IS_VISIBLE, () => mainWindow?.isVisible() ?? false)
+
+const APP_SETTINGS_PATH = join(homedir(), '.config', 'oco', 'settings.json')
+
+function readAppSettings(): Record<string, unknown> {
+  try {
+    if (existsSync(APP_SETTINGS_PATH)) return JSON.parse(readFileSync(APP_SETTINGS_PATH, 'utf-8'))
+  } catch {}
+  return {}
+}
+
+function writeAppSettings(settings: Record<string, unknown>): void {
+  try {
+    mkdirSync(join(homedir(), '.config', 'oco'), { recursive: true })
+    writeFileSync(APP_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8')
+  } catch {}
+}
+
+ipcMain.handle(IPC.GET_APP_SETTINGS, () => readAppSettings())
+
+ipcMain.handle(IPC.SET_APP_SETTINGS, (_event, settings: Record<string, unknown>) => {
+  writeAppSettings(settings)
+  BrowserWindow.getAllWindows().forEach((win) => {
+    win.webContents.send(IPC.APP_SETTINGS_CHANGED, settings)
+  })
+  return true
+})
 
 ipcMain.on(IPC.DRAG_MOVE, (event, deltaX: number, deltaY: number) => {
   const win = BrowserWindow.fromWebContents(event.sender)

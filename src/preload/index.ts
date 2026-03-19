@@ -38,6 +38,9 @@ export interface OcoAPI {
   openSettings(): void
   getShortcutSettings(): Promise<ShortcutSettings>
   setShortcutSettings(settings: ShortcutSettings): Promise<ShortcutSettingsUpdateResult>
+  getAppSettings(): Promise<Record<string, unknown>>
+  setAppSettings(settings: Record<string, unknown>): Promise<boolean>
+  onAppSettingsChanged(callback: (settings: Record<string, unknown>) => void): () => void
   resizeHeight(height: number): void
   setWindowWidth(width: number): void
   animateHeight(from: number, to: number, durationMs: number): Promise<void>
@@ -76,6 +79,13 @@ const api: OcoAPI = {
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),
   getShortcutSettings: () => ipcRenderer.invoke(IPC.GET_SHORTCUT_SETTINGS),
   setShortcutSettings: (settings) => ipcRenderer.invoke(IPC.SET_SHORTCUT_SETTINGS, settings),
+  getAppSettings: () => ipcRenderer.invoke(IPC.GET_APP_SETTINGS),
+  setAppSettings: (settings) => ipcRenderer.invoke(IPC.SET_APP_SETTINGS, settings),
+  onAppSettingsChanged: (callback) => {
+    const handler = (_e: Electron.IpcRendererEvent, settings: Record<string, unknown>) => callback(settings)
+    ipcRenderer.on(IPC.APP_SETTINGS_CHANGED, handler)
+    return () => ipcRenderer.removeListener(IPC.APP_SETTINGS_CHANGED, handler)
+  },
   onThemeChange: (callback) => {
     const handler = (_e: Electron.IpcRendererEvent, isDark: boolean) => callback(isDark)
     ipcRenderer.on(IPC.THEME_CHANGED, handler)

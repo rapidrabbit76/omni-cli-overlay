@@ -180,6 +180,9 @@ export const IPC = {
   OPEN_SETTINGS: 'oco:open-settings',
   GET_SHORTCUT_SETTINGS: 'oco:get-shortcut-settings',
   SET_SHORTCUT_SETTINGS: 'oco:set-shortcut-settings',
+  GET_APP_SETTINGS: 'oco:get-app-settings',
+  SET_APP_SETTINGS: 'oco:set-app-settings',
+  APP_SETTINGS_CHANGED: 'oco:app-settings-changed',
 
   DRAG_MOVE: 'oco:drag-move',
 
