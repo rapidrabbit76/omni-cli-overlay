@@ -9,11 +9,19 @@
 html, body, #root {
   height: 100%;
   margin: 0;
-  background: transparent !important;
+  background: transparent;
   overflow: hidden;
   user-select: none;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+html.settings-window,
+html.settings-window body,
+html.settings-window #root {
+  background: var(--oco-container-bg);
+  overflow: auto;
+  user-select: none;
 }
 
 /* ─── Scrollbar — thin & subtle ─── */
