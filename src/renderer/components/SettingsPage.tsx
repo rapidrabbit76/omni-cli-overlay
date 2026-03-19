@@ -3,6 +3,7 @@ import {
   ArrowsOutSimple,
   Bell,
   Brain,
+  Crosshair,
   Drop,
   FolderOpen,
   Info,
@@ -23,6 +24,7 @@ interface AppSettings {
   defaultReasoning: string
   defaultDirectory: string
   fontSize: 'small' | 'medium' | 'large'
+  rememberPosition: boolean
 }
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -30,6 +32,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultReasoning: REASONING_LEVELS[1].id,
   defaultDirectory: '~',
   fontSize: 'medium',
+  rememberPosition: false,
 }
 
 function loadAppSettings(): AppSettings {
@@ -415,6 +418,21 @@ export default function SettingsPage() {
               checked={expandedUI}
               onChange={setExpandedUI}
               label="Toggle full width"
+              accent={colors.accent}
+              background={colors.surfaceSecondary}
+              border={colors.containerBorder}
+            />
+          </div>
+
+          <div className={rowClassName} style={rowBaseStyle}>
+            <div className="flex items-center gap-3">
+              <Crosshair size={16} style={{ color: colors.textTertiary }} />
+              <span className="text-[11px]">Remember Position</span>
+            </div>
+            <RowToggle
+              checked={appSettings.rememberPosition}
+              onChange={(v) => updateAppSetting('rememberPosition', v)}
+              label="Toggle remember position"
               accent={colors.accent}
               background={colors.surfaceSecondary}
               border={colors.containerBorder}
