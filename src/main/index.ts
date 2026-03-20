@@ -651,22 +651,36 @@ ipcMain.handle(IPC.OPEN_IN_TERMINAL, (_event, arg: string | null | { sessionId?:
   }
 })
 
-ipcMain.handle(IPC.LIST_SKILLS, () => {
-  const skillsDir = join(homedir(), '.codex', 'skills')
-  if (!existsSync(skillsDir)) return []
+ipcMain.handle(IPC.LIST_SKILLS, async () => {
   try {
-    return readdirSync(skillsDir)
-      .filter((name) => {
-        const skillMd = join(skillsDir, name, 'SKILL.md')
-        return existsSync(skillMd)
-      })
-      .map((name) => {
-        const content = readFileSync(join(skillsDir, name, 'SKILL.md'), 'utf-8')
-        const descMatch = content.match(/^description:\s*(.+)$/m)
-        return { name, description: descMatch?.[1]?.trim() || '' }
-      })
-  } catch {
-    return []
+    const skills = await controlPlane.listSkills()
+    return skills
+      .filter((s) => s.enabled)
+      .map((s) => ({
+        name: s.name,
+        description: s.description,
+        scope: s.scope,
+        enabled: s.enabled,
+        path: s.path,
+      }))
+  } catch (err) {
+    log(`skills/list RPC failed, falling back to filesystem: ${(err as Error).message}`)
+    const skillsDir = join(homedir(), '.codex', 'skills')
+    if (!existsSync(skillsDir)) return []
+    try {
+      return readdirSync(skillsDir)
+        .filter((name) => {
+          const skillMd = join(skillsDir, name, 'SKILL.md')
+          return existsSync(skillMd)
+        })
+        .map((name) => {
+          const content = readFileSync(join(skillsDir, name, 'SKILL.md'), 'utf-8')
+          const descMatch = content.match(/^description:\s*(.+)$/m)
+          return { name, description: descMatch?.[1]?.trim() || '', scope: 'user' as const, enabled: true, path: join(skillsDir, name) }
+        })
+    } catch {
+      return []
+    }
   }
 })
 

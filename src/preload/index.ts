@@ -33,7 +33,7 @@ export interface OcoAPI {
   resetTabSession(tabId: string): void
   listSessions(projectPath?: string): Promise<SessionMeta[]>
   loadSession(sessionId: string, projectPath?: string): Promise<SessionLoadMessage[]>
-  listSkills(): Promise<Array<{ name: string; description: string }>>
+  listSkills(): Promise<Array<{ name: string; description: string; scope?: string; enabled?: boolean; path?: string }>>
   getTheme(): Promise<{ isDark: boolean }>
   onThemeChange(callback: (isDark: boolean) => void): () => void
   openSettings(): void
