@@ -51,9 +51,8 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
           transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
+            bottom: 80,
+            right: 24,
             width: 220,
             zIndex: 100,
             background: colors.popoverBg,
