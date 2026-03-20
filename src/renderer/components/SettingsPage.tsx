@@ -458,7 +458,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
-                <div className={rowClassName} style={rowBaseStyle}>
+                <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
                   <div className="flex items-center gap-3">
                     <FolderOpen size={16} style={{ color: colors.textTertiary }} />
                     <span className="text-[11px]">Default Directory</span>
@@ -481,6 +481,12 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* YOLO Mode toggle — hidden until upstream bug is resolved.
+                   * app-server ignores sandbox params at tool execution level.
+                   * See: https://github.com/openai/codex/issues/14068
+                   * The underlying code (RunOptions.yoloMode, run-manager sandbox selection)
+                   * is kept intact so this can be re-enabled once the fix lands.
+                   *
                 <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
                   <div className="flex items-center gap-3">
                     <Lightning size={16} weight="fill" style={{ color: appSettings.yoloMode ? '#f59e0b' : colors.textTertiary }} />
@@ -501,6 +507,7 @@ export default function SettingsPage() {
                     border={colors.containerBorder}
                   />
                 </div>
+                */}
               </div>
 
               <SectionHeader label="Appearance" color={colors.textTertiary} />
