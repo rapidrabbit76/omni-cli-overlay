@@ -22,17 +22,25 @@ function measureAllUI(): { width: number; height: number } {
   const els = document.querySelectorAll('[data-oco-ui]')
   if (els.length === 0) return { width: 400, height: 200 }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  let wMinX = Infinity, wMaxX = -Infinity
   els.forEach((el) => {
     const r = el.getBoundingClientRect()
     if (r.width === 0 && r.height === 0) return
-    minX = Math.min(minX, r.left)
+    const isFloat = (el as HTMLElement).hasAttribute('data-oco-float')
     minY = Math.min(minY, r.top)
-    maxX = Math.max(maxX, r.right)
     maxY = Math.max(maxY, r.bottom)
+    if (!isFloat) {
+      wMinX = Math.min(wMinX, r.left)
+      wMaxX = Math.max(wMaxX, r.right)
+    }
+    minX = Math.min(minX, r.left)
+    maxX = Math.max(maxX, r.right)
   })
   if (!isFinite(minX)) return { width: 400, height: 200 }
+  const finalMinX = isFinite(wMinX) ? wMinX : minX
+  const finalMaxX = isFinite(wMaxX) ? wMaxX : maxX
   return {
-    width: Math.round(maxX - minX + WINDOW_PAD * 2),
+    width: Math.round(finalMaxX - finalMinX + WINDOW_PAD * 2),
     height: Math.round(maxY - minY + WINDOW_PAD * 2),
   }
 }
