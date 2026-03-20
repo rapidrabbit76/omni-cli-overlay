@@ -19,7 +19,7 @@ const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
 const WINDOW_PAD = 32
 
 function measureAllUI(): { width: number; height: number } {
-  const els = document.querySelectorAll('[data-oco-ui]')
+  const els = document.querySelectorAll('[data-oco-ui]:not([data-oco-float])')
   if (els.length === 0) return { width: 400, height: 200 }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   els.forEach((el) => {
@@ -42,11 +42,16 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     const el = ref.current
     if (!el) return
     let rafId = 0
+    let prevW = 0
+    let prevH = 0
 
     const sync = () => {
       cancelAnimationFrame(rafId)
       rafId = requestAnimationFrame(() => {
         const { width, height } = measureAllUI()
+        if (width === prevW && height === prevH) return
+        prevW = width
+        prevH = height
         window.oco.setWindowWidth(width)
         window.oco.resizeHeight(height)
       })
@@ -138,7 +143,7 @@ export default function App() {
     const onMouseMove = (e: MouseEvent) => {
       if (isDraggingRef.current) return
       const el = document.elementFromPoint(e.clientX, e.clientY)
-      const isUI = !!(el && el.closest('[data-oco-ui]'))
+      const isUI = !!(el && (el.closest('[data-oco-ui]') || el.closest('[data-oco-float]')))
       const shouldIgnore = !isUI
       if (shouldIgnore !== lastIgnored) {
         lastIgnored = shouldIgnore

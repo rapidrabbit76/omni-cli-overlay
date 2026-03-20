@@ -122,6 +122,7 @@ export function SettingsPopover() {
         <motion.div
           ref={popoverRef}
           data-oco-ui
+          data-oco-float
           initial={{ opacity: 0, y: isExpanded ? -4 : 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: isExpanded ? -4 : 4 }}

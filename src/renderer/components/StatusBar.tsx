@@ -276,6 +276,7 @@ export function StatusBar() {
           <motion.div
             ref={dirPopRef}
             data-oco-ui
+            data-oco-float
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.12 }}

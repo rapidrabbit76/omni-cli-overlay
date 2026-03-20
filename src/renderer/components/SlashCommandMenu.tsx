@@ -106,6 +106,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
   return createPortal(
     <motion.div
       data-oco-ui
+      data-oco-float
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 4 }}
