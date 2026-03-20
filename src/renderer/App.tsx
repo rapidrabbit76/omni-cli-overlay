@@ -19,7 +19,7 @@ const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
 const WINDOW_PAD = 32
 
 function measureAllUI(): { width: number; height: number } {
-  const els = document.querySelectorAll('[data-oco-ui]:not([data-oco-float])')
+  const els = document.querySelectorAll('[data-oco-ui]')
   if (els.length === 0) return { width: 400, height: 200 }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   els.forEach((el) => {
@@ -37,6 +37,8 @@ function measureAllUI(): { width: number; height: number } {
   }
 }
 
+const SHRINK_DELAY_MS = 180
+
 function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const el = ref.current
@@ -44,16 +46,28 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     let rafId = 0
     let prevW = 0
     let prevH = 0
+    let shrinkTimer = 0
+
+    const applySize = (width: number, height: number) => {
+      prevW = width
+      prevH = height
+      window.oco.setWindowWidth(width)
+      window.oco.resizeHeight(height)
+    }
 
     const sync = () => {
       cancelAnimationFrame(rafId)
       rafId = requestAnimationFrame(() => {
         const { width, height } = measureAllUI()
         if (width === prevW && height === prevH) return
-        prevW = width
-        prevH = height
-        window.oco.setWindowWidth(width)
-        window.oco.resizeHeight(height)
+        const isGrowing = height >= prevH
+        if (isGrowing) {
+          clearTimeout(shrinkTimer)
+          applySize(width, height)
+        } else {
+          clearTimeout(shrinkTimer)
+          shrinkTimer = window.setTimeout(() => applySize(width, height), SHRINK_DELAY_MS)
+        }
       })
     }
 
@@ -71,6 +85,7 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
       mutObserver.disconnect()
       zoomMql.removeEventListener('change', sync)
       cancelAnimationFrame(rafId)
+      clearTimeout(shrinkTimer)
     }
   }, [ref])
 }
