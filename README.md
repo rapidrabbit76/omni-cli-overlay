@@ -272,4 +272,4 @@ OCO_DEBUG=1 pnpm dev
 
 ## License
 
-[MIT](LICENSE) © yslee
+[MIT](LICENSE) © rapidrabbit76 (yslee.dev@gmail.com)
