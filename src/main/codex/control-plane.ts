@@ -9,6 +9,8 @@ import type { ThreadListResponse } from '../../shared/codex-protocol/v2/ThreadLi
 import type { ThreadSourceKind } from '../../shared/codex-protocol/v2/ThreadSourceKind'
 import type { SkillsListResponse } from '../../shared/codex-protocol/v2/SkillsListResponse'
 import type { SkillMetadata } from '../../shared/codex-protocol/v2/SkillMetadata'
+import type { ModelListResponse } from '../../shared/codex-protocol/v2/ModelListResponse'
+import type { Model } from '../../shared/codex-protocol/v2/Model'
 
 const MAX_QUEUE_DEPTH = 32
 
@@ -218,6 +220,12 @@ export class ControlPlane extends EventEmitter {
       elapsedMs: inflight ? Date.now() - this.tabs.get(inflight.tabId)!.lastActivityAt : 0,
       toolCallCount: 0,
     }
+  }
+
+  async listModels(): Promise<Model[]> {
+    await this.initialize()
+    const result = await this.wsTransport.request<ModelListResponse>('model/list', {})
+    return result.data
   }
 
   async listSkills(cwd?: string): Promise<SkillMetadata[]> {

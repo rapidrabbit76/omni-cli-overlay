@@ -10,6 +10,7 @@ import type {
   SessionLoadMessage,
   ShortcutSettings,
   ShortcutSettingsUpdateResult,
+  ModelInfo,
 } from '../shared/types'
 
 export interface OcoAPI {
@@ -33,6 +34,7 @@ export interface OcoAPI {
   resetTabSession(tabId: string): void
   listSessions(projectPath?: string): Promise<SessionMeta[]>
   loadSession(sessionId: string, projectPath?: string): Promise<SessionLoadMessage[]>
+  listModels(): Promise<ModelInfo[]>
   listSkills(): Promise<Array<{ name: string; description: string; scope?: string; enabled?: boolean; path?: string }>>
   getTheme(): Promise<{ isDark: boolean }>
   onThemeChange(callback: (isDark: boolean) => void): () => void
@@ -78,6 +80,7 @@ const api: OcoAPI = {
   resetTabSession: (tabId) => ipcRenderer.send(IPC.RESET_TAB_SESSION, tabId),
   listSessions: (projectPath) => ipcRenderer.invoke(IPC.LIST_SESSIONS, projectPath),
   loadSession: (sessionId, projectPath) => ipcRenderer.invoke(IPC.LOAD_SESSION, { sessionId, projectPath }),
+  listModels: () => ipcRenderer.invoke(IPC.LIST_MODELS),
   listSkills: () => ipcRenderer.invoke(IPC.LIST_SKILLS),
   getTheme: () => ipcRenderer.invoke(IPC.GET_THEME),
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),

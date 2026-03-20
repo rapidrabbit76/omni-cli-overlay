@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUp, Microphone, SpinnerGap, X, Check } from '@phosphor-icons/react'
-import { useSessionStore, AVAILABLE_MODELS } from '../stores/sessionStore'
+import { useSessionStore } from '../stores/sessionStore'
 import { AttachmentChips } from './AttachmentChips'
 import { SlashCommandMenu, getFilteredCommandsWithExtras, type SlashCommand } from './SlashCommandMenu'
 import { SkillMenu } from './SkillMenu'
@@ -237,7 +237,8 @@ export function InputBar() {
         break
       case '/model': {
         const current = preferredModel || tab?.sessionModel || 'default'
-        const lines = AVAILABLE_MODELS.map((m) => `  ${m.id === current ? '●' : '○'} ${m.label} (${m.id})`)
+        const models = useSessionStore.getState().availableModels
+        const lines = models.map((m) => `  ${m.id === current ? '●' : '○'} ${m.label} (${m.id})`)
         addSystemMessage(`Codex model\n\n${lines.join('\n')}\n\nSwitch model: /model <name>`)
         break
       }
@@ -357,7 +358,8 @@ export function InputBar() {
     const modelMatch = prompt.match(/^\/model\s+(\S+)/i)
     if (modelMatch) {
       const query = modelMatch[1].toLowerCase()
-      const match = AVAILABLE_MODELS.find((m) => m.id.toLowerCase().includes(query) || m.label.toLowerCase().includes(query))
+      const models = useSessionStore.getState().availableModels
+      const match = models.find((m) => m.id.toLowerCase().includes(query) || m.label.toLowerCase().includes(query))
       if (match) {
         setPreferredModel(match.id)
         addSystemMessage(`Model switched to ${match.label} (${match.id})`)

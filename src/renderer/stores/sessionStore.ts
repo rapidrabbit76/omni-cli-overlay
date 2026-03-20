@@ -7,16 +7,17 @@ import type {
   TabState,
   Attachment,
   ShortcutSettings,
+  ModelInfo,
 } from '../../shared/types'
 import { useThemeStore } from '../theme'
 import notificationSrc from '../../../resources/notification.mp3'
 
-export const AVAILABLE_MODELS = [
-  { id: 'gpt-5.4', label: 'GPT-5.4' },
-  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-  { id: 'o3', label: 'o3' },
-  { id: 'o4-mini', label: 'o4-mini' },
-] as const
+const FALLBACK_MODELS: ModelInfo[] = [
+  { id: 'gpt-5.4', label: 'GPT-5.4', description: '', hidden: false, isDefault: true, supportedReasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
+  { id: 'o3', label: 'o3', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium' },
+  { id: 'o4-mini', label: 'o4-mini', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium' },
+]
 
 export const REASONING_LEVELS = [
   { id: 'low', label: 'Low' },
@@ -45,7 +46,9 @@ interface State {
   shortcutSettings: ShortcutSettings | null
   shortcutSettingsSaving: boolean
   shortcutSettingsError: string | null
+  availableModels: ModelInfo[]
   initStaticInfo: () => Promise<void>
+  fetchModels: () => Promise<void>
   loadShortcutSettings: () => Promise<void>
   saveShortcutSettings: (settings: ShortcutSettings) => Promise<boolean>
   setPreferredModel: (model: string | null) => void
@@ -155,6 +158,7 @@ export function initSessionDefaults(): void {
   if (window.oco.onAppSettingsChanged) {
     window.oco.onAppSettingsChanged(applyAppSettings)
   }
+  useSessionStore.getState().fetchModels()
 }
 
 export const useSessionStore = create<State>((set, get) => ({
@@ -171,6 +175,14 @@ export const useSessionStore = create<State>((set, get) => ({
   shortcutSettings: cachedShortcutSettings,
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,
+  availableModels: FALLBACK_MODELS,
+
+  fetchModels: async () => {
+    try {
+      const models = await window.oco.listModels()
+      if (models.length > 0) set({ availableModels: models })
+    } catch {}
+  },
 
   initStaticInfo: async () => {
     try {

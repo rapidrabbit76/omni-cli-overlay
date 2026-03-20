@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Terminal, CaretDown, Check, FolderOpen, Plus, X } from '@phosphor-icons/react'
-import { useSessionStore, AVAILABLE_MODELS, REASONING_LEVELS } from '../stores/sessionStore'
+import { useSessionStore, REASONING_LEVELS } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
 
@@ -13,6 +13,7 @@ function ModelPicker() {
   const setPreferredModel = useSessionStore((s) => s.setPreferredModel)
   const preferredReasoning = useSessionStore((s) => s.preferredReasoning)
   const setPreferredReasoning = useSessionStore((s) => s.setPreferredReasoning)
+  const availableModels = useSessionStore((s) => s.availableModels)
   const tab = useSessionStore(
     (s) => s.tabs.find((t) => t.id === s.activeTabId),
     (a, b) => a === b || (!!a && !!b && a.status === b.status && a.sessionModel === b.sessionModel),
@@ -56,14 +57,15 @@ function ModelPicker() {
 
   const activeModelLabel = (() => {
     if (preferredModel) {
-      const m = AVAILABLE_MODELS.find((m) => m.id === preferredModel)
+      const m = availableModels.find((m) => m.id === preferredModel)
       return m?.label || preferredModel
     }
     if (tab?.sessionModel) {
-      const m = AVAILABLE_MODELS.find((m) => m.id === tab.sessionModel)
+      const m = availableModels.find((m) => m.id === tab.sessionModel)
       return m?.label || tab.sessionModel
     }
-    return AVAILABLE_MODELS[0].label
+    const defaultModel = availableModels.find((m) => m.isDefault)
+    return defaultModel?.label || availableModels[0]?.label || 'Model'
   })()
 
   const activeReasoningLabel = (() => {
@@ -115,8 +117,9 @@ function ModelPicker() {
             <div className="px-3 py-1 text-[9px] uppercase tracking-wider" style={{ color: colors.textTertiary }}>
               Model
             </div>
-            {AVAILABLE_MODELS.map((m) => {
-              const isSelected = preferredModel === m.id || (!preferredModel && m.id === AVAILABLE_MODELS[0].id)
+            {availableModels.map((m) => {
+              const defaultModelId = availableModels.find((dm) => dm.isDefault)?.id || availableModels[0]?.id
+              const isSelected = preferredModel === m.id || (!preferredModel && m.id === defaultModelId)
               return (
                 <button
                   type="button"
