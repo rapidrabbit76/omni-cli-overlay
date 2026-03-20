@@ -292,3 +292,17 @@ export const IPC = {
   RUN_COMPLETE: 'oco:run-complete',
   RUN_ERROR: 'oco:run-error',
 } as const
+
+/**
+ * Convert an Electron-style shortcut string (e.g. "Alt+Space", "CommandOrControl+Shift+K")
+ * into a human-readable label with platform symbols (e.g. "⌥ Space", "⌘ ⇧ K").
+ */
+export function formatShortcutLabel(shortcut: string): string {
+  return shortcut
+    .replace(/CommandOrControl/g, '⌘')
+    .replace(/Meta/g, '⌘')
+    .replace(/Control/g, '⌃')
+    .replace(/Alt/g, '⌥')
+    .replace(/Shift/g, '⇧')
+    .replace(/\+/g, ' ')
+}

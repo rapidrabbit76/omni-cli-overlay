@@ -10,6 +10,7 @@ import {
 import { useSessionStore } from '../stores/sessionStore'
 import { useColors, useThemeStore } from '../theme'
 import type { Message } from '../../shared/types'
+import { formatShortcutLabel } from '../../shared/types'
 
 // ─── Constants ───
 
@@ -252,7 +253,10 @@ export function ConversationView() {
 
 function EmptyState() {
   const setBaseDirectory = useSessionStore((s) => s.setBaseDirectory)
+  const shortcutSettings = useSessionStore((s) => s.shortcutSettings)
   const colors = useColors()
+
+  const shortcutLabel = formatShortcutLabel(shortcutSettings?.primaryShortcut || 'Alt+Space')
 
   const handleChooseFolder = async () => {
     const dir = await window.oco.selectDirectory()
@@ -280,7 +284,7 @@ function EmptyState() {
         Choose folder
       </button>
       <span className="text-[11px]" style={{ color: colors.textTertiary }}>
-        Press <strong style={{ color: colors.textSecondary }}>⌥ + Space</strong> to show/hide this overlay
+        Press <strong style={{ color: colors.textSecondary }}>{shortcutLabel}</strong> to show/hide this overlay
       </span>
     </div>
   )

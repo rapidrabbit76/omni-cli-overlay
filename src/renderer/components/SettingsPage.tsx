@@ -14,7 +14,7 @@ import {
   Target,
   X,
 } from '@phosphor-icons/react'
-import { DEFAULT_SHORTCUT_SETTINGS, DEFAULT_KEYBINDINGS, KEYBINDING_LABELS } from '../../shared/types'
+import { DEFAULT_SHORTCUT_SETTINGS, DEFAULT_KEYBINDINGS, KEYBINDING_LABELS, formatShortcutLabel } from '../../shared/types'
 import type { KeybindingMap, KeybindingAction } from '../../shared/types'
 import { AVAILABLE_MODELS, REASONING_LEVELS, useSessionStore } from '../stores/sessionStore'
 import { useColors, useThemeStore, FONT_PRESETS } from '../theme'
@@ -87,14 +87,7 @@ function keybindingEventToString(e: React.KeyboardEvent): { value: string | null
   }
 }
 
-function formatKeybinding(shortcut: string): string {
-  return shortcut
-    .replace(/Meta/g, '⌘')
-    .replace(/Control/g, '⌃')
-    .replace(/Alt/g, '⌥')
-    .replace(/Shift/g, '⇧')
-    .replace(/\+/g, ' ')
-}
+
 
 function RowToggle({
   checked,
@@ -641,7 +634,7 @@ export default function SettingsPage() {
                       const isLast = idx === section.actions.length - 1
                       const isRecording = recordingKeybinding === action
                       const currentValue = keybindings[action]
-                      const displayValue = isRecording && keybindingPreview ? keybindingPreview : formatKeybinding(currentValue)
+                      const displayValue = isRecording && keybindingPreview ? keybindingPreview : formatShortcutLabel(currentValue)
 
                       return (
                         <div
