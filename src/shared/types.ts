@@ -168,6 +168,7 @@ export interface KeybindingMap {
   'action.focus': string
   'action.hide': string
   'action.toggleExpand': string
+  'action.voiceInput': string
 }
 
 export type KeybindingAction = keyof KeybindingMap
@@ -203,6 +204,7 @@ export const DEFAULT_KEYBINDINGS: KeybindingMap = {
   'action.focus': 'Meta+L',
   'action.hide': 'Escape',
   'action.toggleExpand': 'Meta+E',
+  'action.voiceInput': 'Alt',
 }
 
 export const KEYBINDING_LABELS: Record<KeybindingAction, string> = {
@@ -236,6 +238,7 @@ export const KEYBINDING_LABELS: Record<KeybindingAction, string> = {
   'action.focus': 'Focus Input',
   'action.hide': 'Hide Window',
   'action.toggleExpand': 'Toggle Expanded View',
+  'action.voiceInput': 'Voice Input (Hold)',
 }
 
 export const IPC = {
@@ -287,6 +290,7 @@ export const IPC = {
   APP_SETTINGS_CHANGED: 'oco:app-settings-changed',
 
   RELAUNCH: 'oco:relaunch',
+  TRANSCRIBE_AUDIO: 'oco:transcribe-audio',
   LIST_SKILLS: 'oco:list-skills',
   DRAG_MOVE: 'oco:drag-move',
 

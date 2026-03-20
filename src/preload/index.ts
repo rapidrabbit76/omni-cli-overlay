@@ -48,6 +48,7 @@ export interface OcoAPI {
   hideWindow(): void
   isVisible(): Promise<boolean>
   relaunch(): Promise<void>
+  transcribeAudio(audioBase64: string, language?: string): Promise<{ error: string | null; transcript: string | null }>
   dragMove(deltaX: number, deltaY: number): void
   setIgnoreMouseEvents(ignore: boolean, options?: { forward?: boolean }): void
   onEvent(callback: (tabId: string, event: NormalizedEvent) => void): () => void
@@ -83,6 +84,7 @@ const api: OcoAPI = {
   getShortcutSettings: () => ipcRenderer.invoke(IPC.GET_SHORTCUT_SETTINGS),
   setShortcutSettings: (settings) => ipcRenderer.invoke(IPC.SET_SHORTCUT_SETTINGS, settings),
   relaunch: () => ipcRenderer.invoke(IPC.RELAUNCH),
+  transcribeAudio: (audioBase64, language) => ipcRenderer.invoke(IPC.TRANSCRIBE_AUDIO, { audioBase64, language }),
   getAppSettings: () => ipcRenderer.invoke(IPC.GET_APP_SETTINGS),
   setAppSettings: (settings) => ipcRenderer.invoke(IPC.SET_APP_SETTINGS, settings),
   onAppSettingsChanged: (callback) => {

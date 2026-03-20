@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUp } from '@phosphor-icons/react'
+import { ArrowUp, Microphone, SpinnerGap, X, Check } from '@phosphor-icons/react'
 import { useSessionStore, AVAILABLE_MODELS } from '../stores/sessionStore'
 import { AttachmentChips } from './AttachmentChips'
 import { SlashCommandMenu, getFilteredCommandsWithExtras, type SlashCommand } from './SlashCommandMenu'
@@ -36,6 +36,8 @@ const HELP_TEXT = [
   '/agent, /apps, /sandbox-add-read-dir, /feedback, /logout, /debug-config, /statusline, /experimental, /ps - unavailable in OCO',
 ].join('\n')
 
+type VoiceState = 'idle' | 'recording' | 'transcribing'
+
 interface SkillEntry { name: string; description: string }
 
 interface ActivePrefix {
@@ -65,9 +67,15 @@ export function InputBar() {
   const [skillIndex, setSkillIndex] = useState(0)
   const [isMultiLine, setIsMultiLine] = useState(false)
   const [activePrefix, setActivePrefix] = useState<ActivePrefix | null>(null)
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle')
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLTextAreaElement | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const cancelledRef = useRef(false)
+  const pttRef = useRef(false)
   const allSkills = useSkillCache()
 
   const sendMessage = useSessionStore((s) => s.sendMessage)
@@ -81,6 +89,8 @@ export function InputBar() {
   const setPreferredReasoning = useSessionStore((s) => s.setPreferredReasoning)
   const preferredModel = useSessionStore((s) => s.preferredModel)
   const preferredReasoning = useSessionStore((s) => s.preferredReasoning)
+  const micEnabled = useSessionStore((s) => s.micEnabled)
+  const voiceLanguage = useSessionStore((s) => s.voiceLanguage)
   const staticInfo = useSessionStore((s) => s.staticInfo)
   const tabs = useSessionStore((s) => s.tabs)
   const tab = useSessionStore((s) => s.tabs.find((t) => t.id === s.activeTabId))
@@ -158,7 +168,10 @@ export function InputBar() {
   }, [input, measureInlineHeight])
 
   useLayoutEffect(() => { autoResize() }, [autoResize])
-  useEffect(() => () => { if (measureRef.current) measureRef.current.remove() }, [])
+  useEffect(() => () => {
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+    if (measureRef.current) measureRef.current.remove()
+  }, [])
 
   const updateSlashFilter = useCallback((value: string) => {
     if (activePrefix) { setSlashFilter(null); setSkillFilter(null); return }
@@ -392,6 +405,118 @@ export function InputBar() {
     requestAnimationFrame(() => textareaRef.current?.focus())
   }, [showSlashMenu, slashFilter, slashIndex, handleSlashSelect, input, attachments.length, isConnecting, sendMessage, setPreferredModel, addSystemMessage, executeCommand, activePrefix])
 
+  const stopRecording = useCallback(() => {
+    cancelledRef.current = false
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+  }, [])
+
+  const cancelRecording = useCallback(() => {
+    cancelledRef.current = true
+    if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+  }, [])
+
+  const startRecording = useCallback(async () => {
+    setVoiceError(null)
+    chunksRef.current = []
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setVoiceError('Microphone permission denied.')
+      return
+    }
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
+    const recorder = new MediaRecorder(stream, { mimeType })
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => { t.stop() })
+      if (cancelledRef.current) { cancelledRef.current = false; setVoiceState('idle'); return }
+      if (chunksRef.current.length === 0) { setVoiceState('idle'); return }
+      setVoiceState('transcribing')
+      try {
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        const wavBase64 = await blobToWavBase64(blob)
+        const result = await window.oco.transcribeAudio(wavBase64, voiceLanguage || undefined)
+        if (result.error) setVoiceError(result.error)
+        else if (result.transcript) setInput((prev) => (prev ? `${prev} ${result.transcript}` : result.transcript!))
+      } catch (err: unknown) {
+        setVoiceError(`Voice failed: ${err instanceof Error ? err.message : String(err)}`)
+      } finally {
+        setVoiceState('idle')
+      }
+    }
+    recorder.onerror = () => { stream.getTracks().forEach((t) => { t.stop() }); setVoiceError('Recording failed.'); setVoiceState('idle') }
+    mediaRecorderRef.current = recorder
+    setVoiceState('recording')
+    recorder.start()
+  }, [voiceLanguage])
+
+  const handleVoiceToggle = useCallback(() => {
+    if (!micEnabled) return
+    pttRef.current = false
+    if (voiceState === 'recording') stopRecording()
+    else if (voiceState === 'idle') void startRecording()
+  }, [voiceState, startRecording, stopRecording, micEnabled])
+
+  const voiceStateRef = useRef(voiceState)
+  voiceStateRef.current = voiceState
+  const startRecordingRef = useRef(startRecording)
+  startRecordingRef.current = startRecording
+  const stopRecordingRef = useRef(stopRecording)
+  stopRecordingRef.current = stopRecording
+
+  const voiceKey = useSessionStore((s) => s.voiceKey)
+
+  // PTT: hold voice key to record, release to stop & transcribe
+  useEffect(() => {
+    if (!micEnabled) return
+    const isModifierOnly = ['Alt', 'Control', 'Shift', 'Meta'].includes(voiceKey)
+    let held = false
+    const matchDown = (e: KeyboardEvent): boolean => {
+      if (isModifierOnly) return e.key === voiceKey && !e.repeat
+      const parts = voiceKey.split('+')
+      const key = parts[parts.length - 1]
+      const needMeta = parts.includes('Meta')
+      const needCtrl = parts.includes('Control')
+      const needAlt = parts.includes('Alt')
+      const needShift = parts.includes('Shift')
+      const keyMatch = e.key.length === 1 ? e.key.toUpperCase() === key : e.key === key
+      return keyMatch && e.metaKey === needMeta && e.ctrlKey === needCtrl && e.altKey === needAlt && e.shiftKey === needShift && !e.repeat
+    }
+    const matchUp = (e: KeyboardEvent): boolean => {
+      if (isModifierOnly) return e.key === voiceKey
+      const parts = voiceKey.split('+')
+      const key = parts[parts.length - 1]
+      return e.key.length === 1 ? e.key.toUpperCase() === key : e.key === key
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (matchDown(e) && !held && voiceStateRef.current === 'idle') {
+        e.preventDefault()
+        held = true
+        pttRef.current = true
+        void startRecordingRef.current()
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (matchUp(e) && held) {
+        e.preventDefault()
+        held = false
+        if (pttRef.current) stopRecordingRef.current()
+      }
+    }
+    const onBlur = () => {
+      if (held) { held = false; if (pttRef.current) stopRecordingRef.current() }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [micEnabled, voiceKey])
+
   const isCtrlN = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'n'
   const isCtrlP = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'p'
 
@@ -497,9 +622,13 @@ export function InputBar() {
             placeholder={
               isConnecting
                 ? 'Initializing...'
-                : isBusy
-                  ? 'Type to queue a message...'
-                  : 'Ask Codex anything...'
+                : voiceState === 'recording'
+                  ? 'Recording... tap mic to stop, ✕ to cancel'
+                  : voiceState === 'transcribing'
+                    ? 'Transcribing...'
+                    : isBusy
+                      ? 'Type to queue a message...'
+                      : 'Ask Codex anything...'
             }
             rows={1}
             className="flex-1 bg-transparent resize-none"
@@ -515,8 +644,34 @@ export function InputBar() {
           />
 
           <div className="flex items-center gap-1 shrink-0 ml-2">
+            {micEnabled && (
+              <AnimatePresence mode="wait">
+                {voiceState === 'recording' ? (
+                  <motion.div key="mic-recording" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.12 }} className="flex items-center gap-1">
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={cancelRecording} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ background: colors.surfaceHover, color: colors.textTertiary }} title="Cancel">
+                      <X size={15} weight="bold" />
+                    </button>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={stopRecording} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ background: '#ef4444', color: '#fff' }} title="Stop & transcribe">
+                      <Microphone size={16} weight="fill" />
+                    </button>
+                  </motion.div>
+                ) : voiceState === 'transcribing' ? (
+                  <motion.div key="transcribing" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.1 }}>
+                    <button type="button" disabled className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: colors.surfaceHover, color: colors.textTertiary }}>
+                      <SpinnerGap size={16} className="animate-spin" />
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.div key="mic-idle" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.1 }}>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={handleVoiceToggle} disabled={isConnecting} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ background: colors.surfaceHover, color: isConnecting ? colors.textTertiary : colors.textSecondary }} title="Voice input (or hold Option)">
+                      <Microphone size={16} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            )}
             <AnimatePresence>
-              {canSend && (
+              {canSend && voiceState !== 'recording' && (
                 <motion.div key="send" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.1 }}>
                   <button
                     type="button"
@@ -534,6 +689,89 @@ export function InputBar() {
           </div>
         </div>
       </div>
+      {voiceError && (
+        <div className="px-1 pb-1 text-[11px]" style={{ color: '#ef4444' }}>
+          {voiceError}
+        </div>
+      )}
     </div>
   )
+}
+
+async function blobToWavBase64(blob: Blob): Promise<string> {
+  const arrayBuffer = await blob.arrayBuffer()
+  const audioCtx = new AudioContext()
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer)
+  audioCtx.close()
+
+  const { numberOfChannels, length, sampleRate } = decoded
+  let mono: Float32Array
+  if (numberOfChannels <= 1) {
+    mono = decoded.getChannelData(0)
+  } else {
+    mono = new Float32Array(length)
+    for (let ch = 0; ch < numberOfChannels; ch++) {
+      const channel = decoded.getChannelData(ch)
+      for (let i = 0; i < length; i++) mono[i] += channel[i]
+    }
+    const inv = 1 / numberOfChannels
+    for (let i = 0; i < length; i++) mono[i] *= inv
+  }
+
+  let sumSq = 0
+  for (let i = 0; i < mono.length; i++) sumSq += mono[i] * mono[i]
+  if (Math.sqrt(sumSq / mono.length) < 0.003) {
+    throw new Error('No voice detected. Speak closer to the mic.')
+  }
+
+  const ratio = sampleRate / 16000
+  const outLength = Math.max(1, Math.floor(mono.length / ratio))
+  const resampled = new Float32Array(outLength)
+  for (let i = 0; i < outLength; i++) {
+    const pos = i * ratio
+    const i0 = Math.floor(pos)
+    const i1 = Math.min(i0 + 1, mono.length - 1)
+    const t = pos - i0
+    resampled[i] = mono[i0] * (1 - t) + mono[i1] * t
+  }
+
+  let peak = 0
+  for (let i = 0; i < resampled.length; i++) {
+    const a = Math.abs(resampled[i])
+    if (a > peak) peak = a
+  }
+  const normalized = resampled
+  if (peak > 1e-4 && peak <= 0.95) {
+    const gain = Math.min(0.95 / peak, 8)
+    for (let i = 0; i < normalized.length; i++) normalized[i] *= gain
+  }
+
+  const numSamples = normalized.length
+  const buffer = new ArrayBuffer(44 + numSamples * 2)
+  const view = new DataView(buffer)
+  const writeStr = (off: number, str: string) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)) }
+  writeStr(0, 'RIFF')
+  view.setUint32(4, 36 + numSamples * 2, true)
+  writeStr(8, 'WAVE')
+  writeStr(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, 16000, true)
+  view.setUint32(28, 32000, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  writeStr(36, 'data')
+  view.setUint32(40, numSamples * 2, true)
+  let offset = 44
+  for (let i = 0; i < numSamples; i++) {
+    const s = Math.max(-1, Math.min(1, normalized[i]))
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+    offset += 2
+  }
+
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
 }

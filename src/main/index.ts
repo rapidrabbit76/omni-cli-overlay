@@ -1,9 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut, Tray, Menu, nativeImage, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, screen, globalShortcut, Tray, Menu, nativeImage, nativeTheme, shell, systemPreferences } from 'electron'
 import { join } from 'path'
-import { existsSync, readdirSync, statSync, createReadStream, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, readdirSync, statSync, createReadStream, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
 import { createInterface } from 'readline'
-import { homedir } from 'os'
-import { execSync, execFile } from 'child_process'
+import { homedir, tmpdir } from 'os'
+import { execSync, execFile, exec } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
 import { ControlPlane } from './codex/control-plane'
 import { log as _log, LOG_FILE, flushLogs } from './logger'
 import { DEFAULT_SHORTCUT_SETTINGS, IPC } from '../shared/types'
@@ -234,6 +237,134 @@ ipcMain.handle(IPC.SET_APP_SETTINGS, (_event, settings: Record<string, unknown>)
 ipcMain.handle(IPC.RELAUNCH, () => {
   app.relaunch()
   app.quit()
+})
+
+ipcMain.handle(IPC.TRANSCRIBE_AUDIO, async (_event, { audioBase64, language }: { audioBase64: string; language?: string }) => {
+  const candidates = [
+    '/opt/homebrew/bin/whisperkit-cli',
+    '/usr/local/bin/whisperkit-cli',
+    '/opt/homebrew/bin/whisper-cli',
+    '/usr/local/bin/whisper-cli',
+    '/opt/homebrew/bin/whisper',
+    '/usr/local/bin/whisper',
+    join(homedir(), '.local/bin/whisper'),
+  ]
+
+  let whisperBin = ''
+  for (const c of candidates) {
+    if (existsSync(c)) { whisperBin = c; break }
+  }
+
+  if (!whisperBin) {
+    for (const name of ['whisperkit-cli', 'whisper-cli', 'whisper']) {
+      try {
+        const { stdout } = await execAsync(`/bin/zsh -lc "whence -p ${name}"`)
+        whisperBin = stdout.trim()
+        if (whisperBin) break
+      } catch {}
+    }
+  }
+
+  if (!whisperBin) {
+    const hint = process.arch === 'arm64'
+      ? 'brew install whisperkit-cli   (or: brew install whisper-cpp)'
+      : 'brew install whisper-cpp'
+    return { error: `Whisper not found. Install with:\n  ${hint}`, transcript: null }
+  }
+
+  if (!audioBase64) {
+    return { error: null, transcript: null }
+  }
+
+  const tmpWav = join(tmpdir(), `oco-voice-${Date.now()}.wav`)
+  try {
+    const buf = Buffer.from(audioBase64, 'base64')
+    writeFileSync(tmpWav, buf)
+
+    const isWhisperKit = whisperBin.includes('whisperkit-cli')
+    const isWhisperCpp = !isWhisperKit && whisperBin.includes('whisper-cli')
+
+    log(`Transcribing with: ${whisperBin} (${isWhisperKit ? 'WhisperKit' : isWhisperCpp ? 'whisper-cpp' : 'Python whisper'})`)
+
+    let output: string
+    const langArg = language ? ` --language ${language}` : ''
+
+    if (isWhisperKit) {
+      const reportDir = tmpdir()
+      await execAsync(
+        `"${whisperBin}" transcribe --audio-path "${tmpWav}" --model base${langArg} --without-timestamps --skip-special-tokens --report --report-path "${reportDir}"`,
+        { timeout: 60000 },
+      )
+      const wavBasename = require('path').basename(tmpWav, '.wav')
+      const reportPath = join(reportDir, `${wavBasename}.json`)
+      if (existsSync(reportPath)) {
+        try {
+          const report = JSON.parse(readFileSync(reportPath, 'utf-8'))
+          const transcript = (report.text || '').trim()
+          try { unlinkSync(reportPath) } catch {}
+          try { unlinkSync(join(reportDir, `${wavBasename}.srt`)) } catch {}
+          return { error: null, transcript }
+        } catch {
+          try { unlinkSync(reportPath) } catch {}
+        }
+      }
+      const { stdout } = await execAsync(
+        `"${whisperBin}" transcribe --audio-path "${tmpWav}" --model base${langArg} --without-timestamps --skip-special-tokens`,
+        { timeout: 60000 },
+      )
+      output = stdout
+    } else if (isWhisperCpp) {
+      const modelCandidates = [
+        join(homedir(), '.local/share/whisper/ggml-base.bin'),
+        join(homedir(), '.local/share/whisper/ggml-tiny.bin'),
+        '/opt/homebrew/share/whisper-cpp/models/ggml-base.bin',
+        '/opt/homebrew/share/whisper-cpp/models/ggml-tiny.bin',
+        join(homedir(), '.local/share/whisper/ggml-base.en.bin'),
+        join(homedir(), '.local/share/whisper/ggml-tiny.en.bin'),
+        '/opt/homebrew/share/whisper-cpp/models/ggml-base.en.bin',
+        '/opt/homebrew/share/whisper-cpp/models/ggml-tiny.en.bin',
+      ]
+      let modelPath = ''
+      for (const m of modelCandidates) {
+        if (existsSync(m)) { modelPath = m; break }
+      }
+      if (!modelPath) {
+        return {
+          error: 'Whisper model not found. Download with:\n  mkdir -p ~/.local/share/whisper && curl -L -o ~/.local/share/whisper/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
+          transcript: null,
+        }
+      }
+      const langFlag = language ? `-l ${language}` : modelPath.includes('.en.') ? '-l en' : '-l auto'
+      const { stdout } = await execAsync(
+        `"${whisperBin}" -m "${modelPath}" -f "${tmpWav}" --no-timestamps ${langFlag}`,
+        { timeout: 30000 },
+      )
+      output = stdout
+    } else {
+      await execAsync(
+        `"${whisperBin}" "${tmpWav}" --model base --output_format txt --output_dir "${tmpdir()}"`,
+        { timeout: 30000 },
+      )
+      const txtPath = tmpWav.replace('.wav', '.txt')
+      if (existsSync(txtPath)) {
+        const transcript = readFileSync(txtPath, 'utf-8').trim()
+        try { unlinkSync(txtPath) } catch {}
+        return { error: null, transcript }
+      }
+      return { error: 'Whisper output file not found.', transcript: null }
+    }
+
+    const HALLUCINATIONS = /^\s*(\[BLANK_AUDIO\]|you\.?|thank you\.?|thanks\.?)\s*$/i
+    const transcript = output.replace(/\[[\d:.]+\s*-->\s*[\d:.]+\]\s*/g, '').trim()
+    if (HALLUCINATIONS.test(transcript)) return { error: null, transcript: '' }
+    return { error: null, transcript: transcript || '' }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    log(`Transcription error: ${msg}`)
+    return { error: `Transcription failed: ${msg}`, transcript: null }
+  } finally {
+    try { unlinkSync(tmpWav) } catch {}
+  }
 })
 
 ipcMain.on(IPC.DRAG_MOVE, (event, deltaX: number, deltaY: number) => {
@@ -563,6 +694,14 @@ nativeTheme.on('updated', () => broadcast(IPC.THEME_CHANGED, nativeTheme.shouldU
 
 app.whenReady().then(async () => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide()
+  if (process.platform === 'darwin') {
+    try {
+      const micStatus = systemPreferences.getMediaAccessStatus('microphone')
+      if (micStatus === 'not-determined') await systemPreferences.askForMediaAccess('microphone')
+    } catch (err: unknown) {
+      log(`Microphone permission preflight failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
   await controlPlane.initialize().catch((err) => {
     log(`Failed to initialize app-server transport: ${err instanceof Error ? err.message : String(err)}`)
   })
