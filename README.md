@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="#motivation">Motivation</a> ·
   <a href="#installation">Installation</a> ·
   <a href="#features">Features</a> ·
   <a href="#keyboard-shortcuts">Shortcuts</a> ·
@@ -37,6 +38,12 @@
 OCO is an **always-on-top, click-through overlay** that wraps OpenAI's Codex CLI in a modern desktop interface. It floats above your editor, terminal, or any app — giving you instant access to AI without switching windows.
 
 Think of it as a **HUD for AI coding** — transparent when idle, responsive when needed.
+
+## Motivation
+
+OCO was heavily inspired by [Clui CC](https://github.com/lcoutodemos/clui-cc), a polished Claude Code overlay that wraps `claude -p` with NDJSON streaming. While Clui CC spawns individual CLI processes per tab, OCO takes a different architectural approach — it connects directly to the [Codex CLI app-server](https://github.com/openai/codex) via WebSocket JSON-RPC, enabling native integration with the Codex runtime without shell-level process management.
+
+The goal was simple: bring the same floating-overlay UX to the Codex ecosystem, built Codex-native from the ground up.
 
 ## Features
 
@@ -186,30 +193,6 @@ Type `/` in the input bar to access built-in commands:
 | `/help` | Show all commands |
 
 ## Architecture
-
-```
-src/
-├── main/               # Electron main process
-│   ├── index.ts         # Window management, IPC handlers, tray
-│   ├── logger.ts        # File-based logging
-│   ├── shortcut-settings.ts
-│   └── codex/           # Codex CLI integration layer
-│       ├── control-plane.ts      # Tab registry, request queue, lifecycle
-│       ├── app-server-manager.ts # Codex app-server process management
-│       ├── ws-transport.ts       # WebSocket JSON-RPC transport
-│       ├── run-manager.ts        # Prompt execution & streaming
-│       └── event-normalizer.ts   # Raw → normalized event mapping
-├── preload/             # Context bridge (IPC API)
-├── renderer/            # React UI
-│   ├── App.tsx           # Main overlay layout
-│   ├── SettingsApp.tsx   # Settings window
-│   ├── components/       # TabStrip, ConversationView, InputBar, CommandPalette, ...
-│   ├── hooks/            # useCodexEvents, useKeybindings, useHealthReconciliation
-│   ├── stores/           # Zustand state management
-│   └── theme.ts          # Design tokens, dark/light palettes
-├── shared/              # Types & constants shared across processes
-└── types/               # Asset declarations
-```
 
 ### How It Works
 

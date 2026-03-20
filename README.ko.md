@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="#동기">동기</a> ·
   <a href="#설치">설치</a> ·
   <a href="#기능">기능</a> ·
   <a href="#단축키">단축키</a> ·
@@ -37,6 +38,12 @@
 OCO는 OpenAI의 Codex CLI를 모던한 데스크톱 인터페이스로 감싼 **항상 최상위에 떠 있는 클릭 투과 오버레이**입니다. 에디터, 터미널, 어떤 앱 위에서든 떠 있으며 — 창을 전환하지 않고도 AI에 바로 접근할 수 있습니다.
 
 **AI 코딩을 위한 HUD** — 사용하지 않을 때는 투명하게, 필요할 때는 즉시 반응합니다.
+
+## 동기
+
+OCO는 [Clui CC](https://github.com/lcoutodemos/clui-cc)에서 많은 영감을 받았습니다. Clui CC는 `claude -p`를 NDJSON 스트리밍으로 감싼 완성도 높은 Claude Code 오버레이입니다. Clui CC가 탭마다 CLI 프로세스를 개별 생성하는 방식인 반면, OCO는 다른 아키텍처를 택했습니다 — [Codex CLI app-server](https://github.com/openai/codex)에 WebSocket JSON-RPC로 직접 연결하여, 쉘 레벨의 프로세스 관리 없이 Codex 런타임과 네이티브로 통합합니다.
+
+목표는 단순했습니다: 같은 플로팅 오버레이 UX를 Codex 생태계에 가져오되, 처음부터 Codex 네이티브로 구현하는 것.
 
 ## 기능
 
@@ -184,30 +191,6 @@ pnpm dev
 | `/help` | 전체 명령어 표시 |
 
 ## 아키텍처
-
-```
-src/
-├── main/               # Electron 메인 프로세스
-│   ├── index.ts         # 윈도우 관리, IPC 핸들러, 트레이
-│   ├── logger.ts        # 파일 기반 로깅
-│   ├── shortcut-settings.ts
-│   └── codex/           # Codex CLI 연동 레이어
-│       ├── control-plane.ts      # 탭 레지스트리, 요청 큐, 라이프사이클
-│       ├── app-server-manager.ts # Codex app-server 프로세스 관리
-│       ├── ws-transport.ts       # WebSocket JSON-RPC 전송
-│       ├── run-manager.ts        # 프롬프트 실행 & 스트리밍
-│       └── event-normalizer.ts   # Raw → 정규화 이벤트 매핑
-├── preload/             # Context bridge (IPC API)
-├── renderer/            # React UI
-│   ├── App.tsx           # 메인 오버레이 레이아웃
-│   ├── SettingsApp.tsx   # 설정 윈도우
-│   ├── components/       # TabStrip, ConversationView, InputBar, CommandPalette, ...
-│   ├── hooks/            # useCodexEvents, useKeybindings, useHealthReconciliation
-│   ├── stores/           # Zustand 상태 관리
-│   └── theme.ts          # 디자인 토큰, 다크/라이트 팔레트
-├── shared/              # 프로세스 간 공유 타입 & 상수
-└── types/               # 에셋 선언
-```
 
 ### 동작 방식
 
