@@ -98,7 +98,14 @@ OCO는 [Clui CC](https://github.com/lcoutodemos/clui-cc)에서 많은 영감을 
 
 ## 설치
 
-### 다운로드 (권장)
+### Homebrew (권장)
+
+```bash
+brew tap rapidrabbit76/tap
+brew install --cask oco
+```
+
+### 다운로드
 
 [Releases](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest) 페이지에서 최신 빌드를 받으세요:
 

@@ -98,7 +98,14 @@ The goal was simple: bring the same floating-overlay UX to the Codex ecosystem, 
 
 ## Installation
 
-### Download (Recommended)
+### Homebrew (Recommended)
+
+```bash
+brew tap rapidrabbit76/tap
+brew install --cask oco
+```
+
+### Download
 
 Grab the latest pre-built binary from the [Releases](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest) page:
 
