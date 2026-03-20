@@ -11,6 +11,7 @@ import {
   Info,
   Keyboard,
   Lightning,
+  Microphone,
   MoonStars,
   Target,
   X,
@@ -26,6 +27,9 @@ interface AppSettings {
   defaultDirectory: string
   rememberPosition: boolean
   yoloMode: boolean
+  micEnabled: boolean
+  voiceLanguage: string
+  voiceKey: string
   keybindings?: Partial<KeybindingMap>
 }
 
@@ -35,7 +39,21 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultDirectory: '~',
   rememberPosition: false,
   yoloMode: true,
+  micEnabled: true,
+  voiceLanguage: '',
+  voiceKey: 'Alt',
 }
+
+const VOICE_LANGUAGES = [
+  { id: '', label: 'Auto Detect' },
+  { id: 'ko', label: '한국어' },
+  { id: 'en', label: 'English' },
+  { id: 'ja', label: '日本語' },
+  { id: 'zh', label: '中文' },
+  { id: 'es', label: 'Español' },
+  { id: 'fr', label: 'Français' },
+  { id: 'de', label: 'Deutsch' },
+]
 
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta'])
 
@@ -331,9 +349,148 @@ export default function SettingsPage() {
         >
           <X size={14} weight="bold" />
         </button>
+    </div>
+  )
+}
+
+function VoiceKeyRow({ currentKey, disabled, onChange, colors, rowClassName, rowBaseStyle }: {
+  currentKey: string
+  disabled: boolean
+  onChange: (key: string) => void
+  colors: ReturnType<typeof useColors>
+  rowClassName: string
+  rowBaseStyle: React.CSSProperties
+}) {
+  const [listening, setListening] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!listening) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const parts: string[] = []
+      if (e.metaKey) parts.push('Meta')
+      if (e.ctrlKey) parts.push('Control')
+      if (e.altKey) parts.push('Alt')
+      if (e.shiftKey) parts.push('Shift')
+      const modifiers = new Set(['Meta', 'Control', 'Alt', 'Shift'])
+      if (modifiers.has(e.key)) {
+        onChange(e.key)
+      } else {
+        if (e.key === ' ') parts.push('Space')
+        else if (e.key.length === 1) parts.push(e.key.toUpperCase())
+        else parts.push(e.key)
+        onChange(parts.join('+'))
+      }
+      setListening(false)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [listening, onChange])
+
+  const displayKey = currentKey
+    .replace('Meta', '⌘')
+    .replace('Control', '⌃')
+    .replace('Alt', '⌥')
+    .replace('Shift', '⇧')
+    .replace('Space', '␣')
+
+  return (
+    <div className={rowClassName} style={rowBaseStyle}>
+      <div className="flex items-center gap-3">
+        <Keyboard size={16} style={{ color: colors.textTertiary }} />
+        <span className="text-[11px]">Voice Shortcut</span>
       </div>
-    )
-  }
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setListening(true)}
+        className="h-7 rounded-md px-3 text-[10px] font-mono"
+        style={{
+          background: listening ? colors.accent : colors.surfacePrimary,
+          color: listening ? colors.textOnAccent : colors.textPrimary,
+          border: `1px solid ${listening ? colors.accent : colors.containerBorder}`,
+          opacity: disabled ? 0.4 : 1,
+          minWidth: 60,
+        }}
+      >
+        {listening ? 'Press a key...' : displayKey}
+      </button>
+    </div>
+  )
+}
+
+function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowBaseStyle }: {
+  enabled: boolean
+  voiceKey: string
+  onChange: (v: boolean) => void
+  colors: ReturnType<typeof useColors>
+  rowClassName: string
+  rowBaseStyle: React.CSSProperties
+}) {
+  const [whisperStatus, setWhisperStatus] = React.useState<'checking' | 'found' | 'missing'>('checking')
+  const [whisperBackend, setWhisperBackend] = React.useState('')
+
+  React.useEffect(() => {
+    const check = async () => {
+      try {
+        const result = await window.oco.transcribeAudio('', '')
+        if (result.error?.includes('not found') || result.error?.includes('not detected')) {
+          setWhisperStatus('missing')
+          setWhisperBackend(result.error)
+        } else {
+          setWhisperStatus('found')
+        }
+      } catch {
+        setWhisperStatus('missing')
+      }
+    }
+    void check()
+  }, [])
+
+  const displayKey = voiceKey
+    .replace('Meta', '⌘').replace('Control', '⌃')
+    .replace('Alt', '⌥').replace('Shift', '⇧').replace('Space', '␣')
+
+  return (
+    <div className={rowClassName} style={rowBaseStyle}>
+      <div className="flex items-center gap-3">
+        <Microphone size={16} style={{ color: enabled ? colors.accent : colors.textTertiary }} />
+        <div>
+          <span className="text-[11px]">Voice Input</span>
+          <div className="text-[9px]" style={{ color: colors.textTertiary }}>
+            {whisperStatus === 'checking'
+              ? 'Checking Whisper...'
+              : whisperStatus === 'missing'
+                ? 'Whisper not installed'
+                : `Hold ${displayKey} or tap mic`}
+          </div>
+          {whisperStatus === 'missing' && (
+            <div className="text-[9px] mt-0.5" style={{ color: '#f59e0b' }}>
+              Install: brew install whisperkit-cli
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        {whisperStatus === 'found' && (
+          <span className="text-[9px]" style={{ color: '#4ade80' }}>●</span>
+        )}
+        {whisperStatus === 'missing' && (
+          <span className="text-[9px]" style={{ color: '#f59e0b' }}>●</span>
+        )}
+        <RowToggle
+          checked={enabled}
+          onChange={onChange}
+          label="Toggle voice input"
+          accent={colors.accent}
+          background={colors.surfaceSecondary}
+          border={colors.containerBorder}
+        />
+      </div>
+    </div>
+  )
+}
 
   const rowBaseStyle: React.CSSProperties = {
     minHeight: 44,
@@ -346,7 +503,7 @@ export default function SettingsPage() {
   const [keybindings, setKeybindings] = useState<KeybindingMap>({ ...DEFAULT_KEYBINDINGS })
   const [recordingKeybinding, setRecordingKeybinding] = useState<KeybindingAction | null>(null)
   const [keybindingPreview, setKeybindingPreview] = useState('')
-  const [keybindingSaveMsg, setKeybindingSaveMsg] = useState<string | null>(null)
+  
 
   useEffect(() => {
     window.oco.getAppSettings().then((raw) => {
@@ -367,7 +524,11 @@ export default function SettingsPage() {
     }
 
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      setKeybindings((prev) => ({ ...prev, [action]: DEFAULT_KEYBINDINGS[action] }))
+      setKeybindings((prev) => {
+        const next = { ...prev, [action]: DEFAULT_KEYBINDINGS[action] }
+        autoSaveKeybindings(next)
+        return next
+      })
       setRecordingKeybinding(null)
       setKeybindingPreview('')
       return
@@ -377,22 +538,25 @@ export default function SettingsPage() {
     setKeybindingPreview(preview)
     if (!value) return
 
-    setKeybindings((prev) => ({ ...prev, [action]: value }))
+    setKeybindings((prev) => {
+      const next = { ...prev, [action]: value }
+      autoSaveKeybindings(next)
+      return next
+    })
     setRecordingKeybinding(null)
     setKeybindingPreview('')
   }
 
-  const handleSaveKeybindings = () => {
+  const autoSaveKeybindings = (kb: KeybindingMap) => {
     window.oco.getAppSettings().then((current) => {
-      window.oco.setAppSettings({ ...current, keybindings })
+      window.oco.setAppSettings({ ...current, keybindings: kb })
     }).catch(() => {})
-    setKeybindingSaveMsg('Keybindings saved.')
-    setTimeout(() => setKeybindingSaveMsg(null), 2000)
   }
 
   const handleResetKeybindings = () => {
-    setKeybindings({ ...DEFAULT_KEYBINDINGS })
-    setKeybindingSaveMsg(null)
+    const defaults = { ...DEFAULT_KEYBINDINGS }
+    setKeybindings(defaults)
+    autoSaveKeybindings(defaults)
   }
 
   return (
@@ -478,8 +642,44 @@ export default function SettingsPage() {
                     >
                       Browse
                     </button>
-                  </div>
+                   </div>
                 </div>
+
+                <VoiceInputRow
+                  enabled={appSettings.micEnabled}
+                  voiceKey={appSettings.voiceKey || 'Alt'}
+                  onChange={(v) => updateAppSetting('micEnabled', v)}
+                  colors={colors}
+                  rowClassName={rowClassName}
+                  rowBaseStyle={rowBaseStyle}
+                />
+
+                <div className={rowClassName} style={rowBaseStyle}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-4 text-center text-[12px]" style={{ color: colors.textTertiary }}>あ</span>
+                    <span className="text-[11px]">Voice Language</span>
+                  </div>
+                  <select
+                    value={appSettings.voiceLanguage}
+                    onChange={(e) => updateAppSetting('voiceLanguage', e.target.value)}
+                    disabled={!appSettings.micEnabled}
+                    className="h-7 rounded-md px-2 text-[10px] outline-none"
+                    style={{ minWidth: 120, background: colors.surfacePrimary, color: colors.textPrimary, border: `1px solid ${colors.containerBorder}`, opacity: appSettings.micEnabled ? 1 : 0.4 }}
+                  >
+                    {VOICE_LANGUAGES.map((lang) => (
+                      <option key={lang.id} value={lang.id}>{lang.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <VoiceKeyRow
+                  currentKey={appSettings.voiceKey || 'Alt'}
+                  disabled={!appSettings.micEnabled}
+                  onChange={(key) => updateAppSetting('voiceKey', key)}
+                  colors={colors}
+                  rowClassName={rowClassName}
+                  rowBaseStyle={{ ...rowBaseStyle, borderBottom: 'none' }}
+                />
 
                 {/* YOLO Mode toggle — hidden until upstream bug is resolved.
                    * app-server ignores sandbox params at tool execution level.
@@ -583,7 +783,7 @@ export default function SettingsPage() {
                       type="range"
                       min={0.3}
                       max={1}
-                      step={0.05}
+                      step={0.01}
                       value={overlayOpacity}
                       onChange={(e) => setOverlayOpacity(Number(e.target.value))}
                       className="h-1 w-24 cursor-pointer accent-[var(--oco-accent)]"
@@ -729,21 +929,7 @@ export default function SettingsPage() {
                 </React.Fragment>
               ))}
 
-              {keybindingSaveMsg && (
-                <div className="mt-2 text-[9px]" style={{ color: colors.accent }}>
-                  {keybindingSaveMsg}
-                </div>
-              )}
-
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveKeybindings}
-                  className="h-8 rounded-md px-3 text-[10px] font-medium"
-                  style={{ background: colors.accent, color: '#fff' }}
-                >
-                  Save
-                </button>
+              <div className="mt-3 flex items-center justify-end">
                 <button
                   type="button"
                   onClick={handleResetKeybindings}

@@ -39,6 +39,9 @@ interface State {
   preferredModel: string | null
   preferredReasoning: string | null
   yoloMode: boolean
+  micEnabled: boolean
+  voiceLanguage: string
+  voiceKey: string
   shortcutSettings: ShortcutSettings | null
   shortcutSettingsSaving: boolean
   shortcutSettingsError: string | null
@@ -136,14 +139,22 @@ function makeLocalTab(): TabState {
 const initialTab = makeLocalTab()
 const cachedShortcutSettings = readShortcutSettingsCache()
 
+function applyAppSettings(raw: Record<string, unknown>): void {
+  const model = typeof raw.defaultModel === 'string' ? raw.defaultModel : null
+  const reasoning = typeof raw.defaultReasoning === 'string' ? raw.defaultReasoning : null
+  const yoloMode = raw.yoloMode === true
+  const micEnabled = raw.micEnabled !== false
+  const voiceLanguage = typeof raw.voiceLanguage === 'string' ? raw.voiceLanguage : ''
+  const voiceKey = typeof raw.voiceKey === 'string' ? raw.voiceKey : 'Alt'
+  useSessionStore.setState({ preferredModel: model, preferredReasoning: reasoning, yoloMode, micEnabled, voiceLanguage, voiceKey })
+}
+
 export function initSessionDefaults(): void {
   if (!window.oco?.getAppSettings) return
-  window.oco.getAppSettings().then((raw) => {
-    const model = typeof raw.defaultModel === 'string' ? raw.defaultModel : null
-    const reasoning = typeof raw.defaultReasoning === 'string' ? raw.defaultReasoning : null
-    const yoloMode = raw.yoloMode === true
-    useSessionStore.setState({ preferredModel: model, preferredReasoning: reasoning, yoloMode })
-  }).catch(() => {})
+  window.oco.getAppSettings().then(applyAppSettings).catch(() => {})
+  if (window.oco.onAppSettingsChanged) {
+    window.oco.onAppSettingsChanged(applyAppSettings)
+  }
 }
 
 export const useSessionStore = create<State>((set, get) => ({
@@ -154,6 +165,9 @@ export const useSessionStore = create<State>((set, get) => ({
   preferredModel: null,
   preferredReasoning: null,
   yoloMode: true,
+  micEnabled: true,
+  voiceLanguage: '',
+  voiceKey: 'Alt',
   shortcutSettings: cachedShortcutSettings,
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,
