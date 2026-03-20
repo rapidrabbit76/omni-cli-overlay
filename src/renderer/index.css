@@ -12,7 +12,8 @@ html, body, #root {
   background: transparent;
   overflow: hidden;
   user-select: none;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--oco-font-family, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif);
+  font-size: var(--oco-font-size, 14px);
   -webkit-font-smoothing: antialiased;
 }
 

@@ -136,6 +136,107 @@ export const DEFAULT_SHORTCUT_SETTINGS: ShortcutSettings = {
   secondaryShortcut: 'CommandOrControl+Shift+K',
 }
 
+export interface KeybindingMap {
+  'tab.1': string
+  'tab.2': string
+  'tab.3': string
+  'tab.4': string
+  'tab.5': string
+  'tab.6': string
+  'tab.7': string
+  'tab.8': string
+  'tab.9': string
+
+  'tab.new': string
+  'tab.close': string
+  'tab.prev': string
+  'tab.next': string
+
+  'chord.prefix': string
+  'chord.reasoning': string
+  'chord.model': string
+
+  'picker.history': string
+  'picker.down': string
+  'picker.up': string
+  'picker.confirm': string
+  'picker.cancel': string
+
+  'action.send': string
+  'action.clear': string
+  'action.focus': string
+  'action.hide': string
+  'action.toggleExpand': string
+}
+
+export type KeybindingAction = keyof KeybindingMap
+
+export const DEFAULT_KEYBINDINGS: KeybindingMap = {
+  'tab.1': 'Meta+1',
+  'tab.2': 'Meta+2',
+  'tab.3': 'Meta+3',
+  'tab.4': 'Meta+4',
+  'tab.5': 'Meta+5',
+  'tab.6': 'Meta+6',
+  'tab.7': 'Meta+7',
+  'tab.8': 'Meta+8',
+  'tab.9': 'Meta+9',
+
+  'tab.new': 'Meta+T',
+  'tab.close': 'Meta+W',
+  'tab.prev': 'Meta+[',
+  'tab.next': 'Meta+]',
+
+  'chord.prefix': 'Control+X',
+  'chord.reasoning': 'T',
+  'chord.model': 'M',
+
+  'picker.history': 'Control+H',
+  'picker.down': 'Control+N',
+  'picker.up': 'Control+P',
+  'picker.confirm': 'Enter',
+  'picker.cancel': 'Escape',
+
+  'action.send': 'Enter',
+  'action.clear': 'Meta+K',
+  'action.focus': 'Meta+L',
+  'action.hide': 'Escape',
+  'action.toggleExpand': 'Meta+E',
+}
+
+export const KEYBINDING_LABELS: Record<KeybindingAction, string> = {
+  'tab.1': 'Switch to Tab 1',
+  'tab.2': 'Switch to Tab 2',
+  'tab.3': 'Switch to Tab 3',
+  'tab.4': 'Switch to Tab 4',
+  'tab.5': 'Switch to Tab 5',
+  'tab.6': 'Switch to Tab 6',
+  'tab.7': 'Switch to Tab 7',
+  'tab.8': 'Switch to Tab 8',
+  'tab.9': 'Switch to Tab 9',
+
+  'tab.new': 'New Tab',
+  'tab.close': 'Close Tab',
+  'tab.prev': 'Previous Tab',
+  'tab.next': 'Next Tab',
+
+  'chord.prefix': 'Chord Prefix',
+  'chord.reasoning': 'Switch Reasoning (after chord)',
+  'chord.model': 'Switch Model (after chord)',
+
+  'picker.history': 'Open History',
+  'picker.down': 'Selection Down',
+  'picker.up': 'Selection Up',
+  'picker.confirm': 'Confirm Selection',
+  'picker.cancel': 'Cancel / Close',
+
+  'action.send': 'Send Message',
+  'action.clear': 'Clear Conversation',
+  'action.focus': 'Focus Input',
+  'action.hide': 'Hide Window',
+  'action.toggleExpand': 'Toggle Expanded View',
+}
+
 export const IPC = {
   START: 'oco:start',
   CREATE_TAB: 'oco:create-tab',

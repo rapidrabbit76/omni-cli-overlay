@@ -272,20 +272,36 @@ export type ColorPalette = { [K in keyof typeof darkColors]: string }
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
+export const DEFAULT_FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif"
+export const DEFAULT_FONT_SIZE = 14
+export const FONT_SIZE_MIN = 10
+export const FONT_SIZE_MAX = 24
+
+export const FONT_PRESETS = [
+  { id: 'system', label: 'System Default', value: DEFAULT_FONT_FAMILY },
+  { id: 'inter', label: 'Inter', value: "'Inter', sans-serif" },
+  { id: 'jetbrains', label: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+  { id: 'fira', label: 'Fira Code', value: "'Fira Code', monospace" },
+  { id: 'sf-mono', label: 'SF Mono', value: "'SF Mono', 'Menlo', monospace" },
+  { id: 'monospace', label: 'Monospace', value: "'Courier New', monospace" },
+] as const
+
 interface ThemeState {
   isDark: boolean
   themeMode: ThemeMode
   soundEnabled: boolean
   expandedUI: boolean
   overlayOpacity: number
-  /** OS-reported dark mode — used when themeMode is 'system' */
+  fontFamily: string
+  fontSize: number
   _systemIsDark: boolean
   setIsDark: (isDark: boolean) => void
   setThemeMode: (mode: ThemeMode) => void
   setSoundEnabled: (enabled: boolean) => void
   setExpandedUI: (expanded: boolean) => void
   setOverlayOpacity: (opacity: number) => void
-  /** Called by OS theme change listener — updates system value */
+  setFontFamily: (fontFamily: string) => void
+  setFontSize: (fontSize: number) => void
   setSystemTheme: (isDark: boolean) => void
 }
 
@@ -308,26 +324,34 @@ function applyTheme(isDark: boolean): void {
   syncTokensToCss(isDark ? darkColors : lightColors)
 }
 
-function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number } {
+function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number } {
   return {
     themeMode: ['system', 'light', 'dark'].includes(raw.themeMode as string) ? raw.themeMode as ThemeMode : 'dark',
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
     expandedUI: typeof raw.expandedUI === 'boolean' ? raw.expandedUI : false,
     overlayOpacity: typeof raw.overlayOpacity === 'number' ? raw.overlayOpacity : 1,
+    fontFamily: typeof raw.fontFamily === 'string' ? raw.fontFamily : DEFAULT_FONT_FAMILY,
+    fontSize: typeof raw.fontSize === 'number' ? Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, raw.fontSize)) : DEFAULT_FONT_SIZE,
   }
 }
 
-function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number }): void {
+function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number }): void {
   if (!window.oco?.getAppSettings) return
   window.oco.getAppSettings().then((current) => {
     window.oco.setAppSettings({ ...current, ...s })
   }).catch(() => {})
 }
 
-const saved = { themeMode: 'dark' as ThemeMode, soundEnabled: true, expandedUI: false, overlayOpacity: 1 }
+const saved = { themeMode: 'dark' as ThemeMode, soundEnabled: true, expandedUI: false, overlayOpacity: 1, fontFamily: DEFAULT_FONT_FAMILY, fontSize: DEFAULT_FONT_SIZE }
 
 function currentSavePayload(g: () => ThemeState) {
-  return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity }
+  return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity, fontFamily: g().fontFamily, fontSize: g().fontSize }
+}
+
+function applyFont(fontFamily: string, fontSize: number): void {
+  const style = document.documentElement.style
+  style.setProperty('--oco-font-family', fontFamily)
+  style.setProperty('--oco-font-size', `${fontSize}px`)
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -336,6 +360,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   soundEnabled: saved.soundEnabled,
   expandedUI: saved.expandedUI,
   overlayOpacity: saved.overlayOpacity,
+  fontFamily: saved.fontFamily,
+  fontSize: saved.fontSize,
   _systemIsDark: true,
   setIsDark: (isDark) => {
     set({ isDark })
@@ -358,6 +384,17 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   setOverlayOpacity: (opacity) => {
     set({ overlayOpacity: opacity })
     saveSettings({ ...currentSavePayload(get), overlayOpacity: opacity })
+  },
+  setFontFamily: (fontFamily) => {
+    set({ fontFamily })
+    applyFont(fontFamily, get().fontSize)
+    saveSettings({ ...currentSavePayload(get), fontFamily })
+  },
+  setFontSize: (fontSize) => {
+    const clamped = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, fontSize))
+    set({ fontSize: clamped })
+    applyFont(get().fontFamily, clamped)
+    saveSettings({ ...currentSavePayload(get), fontSize: clamped })
   },
   setSystemTheme: (isDark) => {
     set({ _systemIsDark: isDark })
@@ -382,8 +419,11 @@ if (typeof window !== 'undefined' && window.oco?.onAppSettingsChanged) {
       soundEnabled: next.soundEnabled,
       expandedUI: next.expandedUI,
       overlayOpacity: next.overlayOpacity,
+      fontFamily: next.fontFamily,
+      fontSize: next.fontSize,
     })
     applyTheme(nextIsDark)
+    applyFont(next.fontFamily, next.fontSize)
   })
 }
 
@@ -397,10 +437,13 @@ export function initSettingsFromFile(): void {
       themeMode: next.themeMode,
       isDark: nextIsDark,
       soundEnabled: next.soundEnabled,
-      expandedUI: false,
+      expandedUI: next.expandedUI,
       overlayOpacity: next.overlayOpacity,
+      fontFamily: next.fontFamily,
+      fontSize: next.fontSize,
     })
     applyTheme(nextIsDark)
+    applyFont(next.fontFamily, next.fontSize)
   }).catch(() => {})
 }
 

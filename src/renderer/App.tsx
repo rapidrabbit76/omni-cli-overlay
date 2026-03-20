@@ -1,17 +1,48 @@
-import React, { useEffect, useCallback, useRef } from 'react'
+import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Paperclip, Camera } from '@phosphor-icons/react'
 import { TabStrip } from './components/TabStrip'
 import { ConversationView } from './components/ConversationView'
 import { InputBar } from './components/InputBar'
 import { StatusBar } from './components/StatusBar'
+import { CommandPalette, type PaletteMode, type PaletteItem } from './components/CommandPalette'
 import { PopoverLayerProvider } from './components/PopoverLayer'
 import { useCodexEvents } from './hooks/useCodexEvents'
 import { useHealthReconciliation } from './hooks/useHealthReconciliation'
-import { useSessionStore, initSessionDefaults } from './stores/sessionStore'
+import { useKeybindings } from './hooks/useKeybindings'
+import { useSessionStore, initSessionDefaults, AVAILABLE_MODELS, REASONING_LEVELS } from './stores/sessionStore'
 import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme'
+import type { KeybindingAction, SessionMeta } from '../shared/types'
 
 const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
+
+function modelItems(currentModel: string | null): PaletteItem[] {
+  return AVAILABLE_MODELS.map((m) => ({
+    id: m.id,
+    label: m.label,
+    description: m.id,
+    active: m.id === currentModel,
+  }))
+}
+
+function reasoningItems(currentLevel: string | null): PaletteItem[] {
+  return REASONING_LEVELS.map((r) => ({
+    id: r.id,
+    label: r.label,
+    active: r.id === currentLevel,
+  }))
+}
+
+function sessionToItem(s: SessionMeta): PaletteItem {
+  const label = s.slug || s.sessionId.substring(0, 12)
+  const diff = Date.now() - new Date(s.lastTimestamp).getTime()
+  const mins = Math.floor(diff / 60000)
+  let ago = 'just now'
+  if (mins >= 1 && mins < 60) ago = `${mins}m ago`
+  else if (mins >= 60 && mins < 1440) ago = `${Math.floor(mins / 60)}h ago`
+  else if (mins >= 1440) ago = `${Math.floor(mins / 1440)}d ago`
+  return { id: s.sessionId, label, description: ago }
+}
 
 export default function App() {
   useCodexEvents()
@@ -31,7 +62,6 @@ export default function App() {
       setSystemTheme(isDark)
     }).catch(() => {})
 
-    // Listen for OS theme changes
     const unsub = window.oco.onThemeChange((isDark) => {
       setSystemTheme(isDark)
     })
@@ -43,7 +73,6 @@ export default function App() {
       const homeDir = useSessionStore.getState().staticInfo?.homePath || '~'
       const tab = useSessionStore.getState().tabs[0]
       if (tab) {
-        // Set working directory to home by default (user hasn't chosen yet)
         useSessionStore.setState((s) => ({
           tabs: s.tabs.map((t, i) => (i === 0 ? { ...t, workingDirectory: homeDir, hasChosenDirectory: false } : t)),
         }))
@@ -97,8 +126,6 @@ export default function App() {
   const isExpanded = useSessionStore((s) => s.isExpanded)
   const isRunning = activeTabStatus === 'running' || activeTabStatus === 'connecting'
 
-
-  // Layout dimensions — expandedUI widens and heightens the panel
   const contentWidth = expandedUI ? 700 : spacing.contentWidth
   const cardExpandedWidth = expandedUI ? 700 : 460
   const cardCollapsedWidth = expandedUI ? 670 : 430
@@ -117,11 +144,150 @@ export default function App() {
     addAttachments(files)
   }, [addAttachments])
 
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteMode, setPaletteMode] = useState<PaletteMode>('model')
+  const [paletteItems, setPaletteItems] = useState<PaletteItem[]>([])
+  const [paletteIndex, setPaletteIndex] = useState(0)
+  const [paletteTitle, setPaletteTitle] = useState('')
+  const historyCacheRef = useRef<SessionMeta[]>([])
+
+  const openPalette = useCallback((mode: PaletteMode) => {
+    const store = useSessionStore.getState()
+    let items: PaletteItem[] = []
+    let title = ''
+    let initialIndex = 0
+
+    if (mode === 'model') {
+      items = modelItems(store.preferredModel || store.tabs.find((t) => t.id === store.activeTabId)?.sessionModel || null)
+      title = 'Switch Model'
+      initialIndex = Math.max(0, items.findIndex((item) => item.active))
+    } else if (mode === 'reasoning') {
+      items = reasoningItems(store.preferredReasoning)
+      title = 'Reasoning Level'
+      initialIndex = Math.max(0, items.findIndex((item) => item.active))
+    } else if (mode === 'history') {
+      title = 'Session History'
+      items = historyCacheRef.current.map(sessionToItem)
+      window.oco.listSessions().then((sessions) => {
+        historyCacheRef.current = sessions
+        setPaletteItems(sessions.map(sessionToItem))
+      }).catch(() => {})
+    }
+
+    setPaletteMode(mode)
+    setPaletteItems(items)
+    setPaletteTitle(title)
+    setPaletteIndex(initialIndex)
+    setPaletteOpen(true)
+  }, [])
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false)
+  }, [])
+
+  const handlePaletteSelect = useCallback((item: PaletteItem) => {
+    const store = useSessionStore.getState()
+    if (paletteMode === 'model') {
+      store.setPreferredModel(item.id)
+      store.addSystemMessage(`Model → ${item.label}`)
+    } else if (paletteMode === 'reasoning') {
+      store.setPreferredReasoning(item.id)
+      store.addSystemMessage(`Reasoning → ${item.label}`)
+    } else if (paletteMode === 'history') {
+      const session = historyCacheRef.current.find((s) => s.sessionId === item.id)
+      if (session) {
+        const title = session.slug || session.sessionId.substring(0, 12)
+        void store.resumeSession(session.sessionId, title)
+      }
+    }
+    closePalette()
+  }, [paletteMode, closePalette])
+
+  const handleAction = useCallback((action: KeybindingAction) => {
+    const store = useSessionStore.getState()
+
+    if (action === 'picker.down') {
+      setPaletteIndex((i) => Math.min(i + 1, paletteItems.length - 1))
+      return
+    }
+    if (action === 'picker.up') {
+      setPaletteIndex((i) => Math.max(i - 1, 0))
+      return
+    }
+    if (action === 'picker.confirm') {
+      if (paletteItems[paletteIndex]) handlePaletteSelect(paletteItems[paletteIndex])
+      return
+    }
+    if (action === 'picker.cancel') {
+      closePalette()
+      return
+    }
+
+    if (action === 'chord.model') {
+      openPalette('model')
+      return
+    }
+    if (action === 'chord.reasoning') {
+      openPalette('reasoning')
+      return
+    }
+    if (action === 'picker.history') {
+      openPalette('history')
+      return
+    }
+
+    if (action.startsWith('tab.') && !isNaN(Number(action.split('.')[1]))) {
+      const idx = Number(action.split('.')[1]) - 1
+      if (idx < store.tabs.length) {
+        store.selectTab(store.tabs[idx].id)
+      }
+      return
+    }
+    if (action === 'tab.new') {
+      void store.createTab()
+      return
+    }
+    if (action === 'tab.close') {
+      store.closeTab(store.activeTabId)
+      return
+    }
+    if (action === 'tab.prev') {
+      const idx = store.tabs.findIndex((t) => t.id === store.activeTabId)
+      if (idx > 0) store.selectTab(store.tabs[idx - 1].id)
+      return
+    }
+    if (action === 'tab.next') {
+      const idx = store.tabs.findIndex((t) => t.id === store.activeTabId)
+      if (idx < store.tabs.length - 1) store.selectTab(store.tabs[idx + 1].id)
+      return
+    }
+
+    if (action === 'action.clear') {
+      store.clearTab()
+      store.addSystemMessage('Conversation cleared.')
+      return
+    }
+    if (action === 'action.focus') {
+      const textarea = document.querySelector<HTMLTextAreaElement>('[data-oco-ui] textarea')
+      textarea?.focus()
+      return
+    }
+    if (action === 'action.toggleExpand') {
+      store.toggleExpanded()
+      return
+    }
+    if (action === 'action.hide') {
+      window.oco.hideWindow()
+      return
+    }
+  }, [paletteItems, paletteIndex, handlePaletteSelect, openPalette, closePalette])
+
+  useKeybindings(undefined, handleAction, paletteOpen)
+
   return (
     <PopoverLayerProvider>
       <div className="flex flex-col justify-end h-full" style={{ background: 'transparent', opacity: overlayOpacity }}>
 
-        {/* ─── 460px content column, centered. Circles overflow left. ─── */}
         <div style={{ width: contentWidth, position: 'relative', margin: '0 auto', transition: 'width 0.26s cubic-bezier(0.4, 0, 0.1, 1)' }}>
 
           <AnimatePresence initial={false} />
@@ -172,7 +338,6 @@ export default function App() {
               zIndex: isExpanded ? 20 : 10,
             }}
           >
-            {/* Tab strip — always mounted */}
             <div className="no-drag">
               <TabStrip />
             </div>
@@ -193,16 +358,12 @@ export default function App() {
             </motion.div>
           </motion.div>
 
-          {/* ─── Input row — circles float outside left ─── */}
-          {/* marginBottom: shadow buffer so the glass-surface drop shadow isn't clipped at the native window edge */}
           <div data-oco-ui className="relative" style={{ minHeight: 46, zIndex: 15, marginBottom: 10 }}>
-            {/* Stacked circle buttons — expand on hover */}
             <div
               data-oco-ui
               className="circles-out"
             >
               <div className="btn-stack">
-                {/* btn-1: Attach (front, rightmost) */}
                 <button
                   type="button"
                   className="stack-btn stack-btn-1 glass-surface"
@@ -212,7 +373,6 @@ export default function App() {
                 >
                   <Paperclip size={17} />
                 </button>
-                {/* btn-2: Screenshot (middle) */}
                 <button
                   type="button"
                   className="stack-btn stack-btn-2 glass-surface"
@@ -225,7 +385,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Input pill */}
             <div
               data-oco-ui
               className="glass-surface w-full"
@@ -235,6 +394,16 @@ export default function App() {
             </div>
           </div>
         </div>
+
+        <CommandPalette
+          open={paletteOpen}
+          mode={paletteMode}
+          items={paletteItems}
+          selectedIndex={paletteIndex}
+          title={paletteTitle}
+          onSelect={handlePaletteSelect}
+          onClose={closePalette}
+        />
       </div>
     </PopoverLayerProvider>
   )
