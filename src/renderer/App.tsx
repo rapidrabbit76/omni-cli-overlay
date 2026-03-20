@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react'
+import React, { useEffect, useCallback, useRef, useState, useLayoutEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Paperclip, Camera } from '@phosphor-icons/react'
 import { TabStrip } from './components/TabStrip'
@@ -15,6 +15,59 @@ import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme
 import type { KeybindingAction, SessionMeta } from '../shared/types'
 
 const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
+const WINDOW_PAD = 32
+
+function measureAllUI(): { width: number; height: number } {
+  const els = document.querySelectorAll('[data-oco-ui]')
+  if (els.length === 0) return { width: 400, height: 200 }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  els.forEach((el) => {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 && r.height === 0) return
+    minX = Math.min(minX, r.left)
+    minY = Math.min(minY, r.top)
+    maxX = Math.max(maxX, r.right)
+    maxY = Math.max(maxY, r.bottom)
+  })
+  if (!isFinite(minX)) return { width: 400, height: 200 }
+  return {
+    width: Math.round(maxX - minX + WINDOW_PAD * 2),
+    height: Math.round(maxY - minY + WINDOW_PAD * 2),
+  }
+}
+
+function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let rafId = 0
+
+    const sync = () => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => {
+        const { width, height } = measureAllUI()
+        window.oco.setWindowWidth(width)
+        window.oco.resizeHeight(height)
+      })
+    }
+
+    const observer = new ResizeObserver(sync)
+    observer.observe(el)
+
+    const mutObserver = new MutationObserver(sync)
+    mutObserver.observe(document.body, { childList: true, subtree: true })
+
+    const zoomMql = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+    zoomMql.addEventListener('change', sync)
+
+    return () => {
+      observer.disconnect()
+      mutObserver.disconnect()
+      zoomMql.removeEventListener('change', sync)
+      cancelAnimationFrame(rafId)
+    }
+  }, [ref])
+}
 
 function modelItems(currentModel: string | null): PaletteItem[] {
   return AVAILABLE_MODELS.map((m) => ({
@@ -131,6 +184,9 @@ export default function App() {
   const cardCollapsedWidth = expandedUI ? 670 : 430
   const cardCollapsedMargin = expandedUI ? 15 : 15
   const bodyMaxHeight = expandedUI ? 520 : 400
+
+  const contentRef = useRef<HTMLDivElement>(null)
+  useAutoWindowSize(contentRef)
 
   const handleScreenshot = useCallback(async () => {
     const result = await window.oco.takeScreenshot()
@@ -288,7 +344,7 @@ export default function App() {
     <PopoverLayerProvider>
       <div className="flex flex-col justify-end h-full" style={{ background: 'transparent', opacity: overlayOpacity }}>
 
-        <div style={{ width: contentWidth, position: 'relative', margin: '0 auto', transition: 'width 0.26s cubic-bezier(0.4, 0, 0.1, 1)' }}>
+        <div ref={contentRef} style={{ width: contentWidth, position: 'relative', margin: '0 auto', transition: 'width 0.26s cubic-bezier(0.4, 0, 0.1, 1)' }}>
 
           <AnimatePresence initial={false} />
 

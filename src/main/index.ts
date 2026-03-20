@@ -25,6 +25,8 @@ const controlPlane = new ControlPlane()
 
 const BAR_WIDTH = 1040
 const PILL_HEIGHT = 620
+const MIN_WIDTH = 360
+const MIN_HEIGHT = 120
 const PILL_BOTTOM_MARGIN = 24
 
 let lastWindowX: number | null = null
@@ -121,7 +123,7 @@ function createSettingsWindow(): void {
   }
 
   settingsWindow = new BrowserWindow({
-    width: 520,
+    width: 600,
     height: 600,
     title: 'Settings',
     titleBarStyle: 'hiddenInset',
@@ -183,8 +185,22 @@ function toggleWindow(): void {
   else showWindow()
 }
 
-ipcMain.on(IPC.RESIZE_HEIGHT, () => {})
-ipcMain.on(IPC.SET_WINDOW_WIDTH, () => {})
+ipcMain.on(IPC.RESIZE_HEIGHT, (_event, height: number) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const zoom = mainWindow.webContents.getZoomFactor()
+  const bounds = mainWindow.getBounds()
+  const clamped = Math.max(MIN_HEIGHT, Math.round(height * zoom))
+  const dy = bounds.height - clamped
+  mainWindow.setBounds({ x: bounds.x, y: bounds.y + dy, width: bounds.width, height: clamped })
+})
+ipcMain.on(IPC.SET_WINDOW_WIDTH, (_event, width: number) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const zoom = mainWindow.webContents.getZoomFactor()
+  const bounds = mainWindow.getBounds()
+  const clamped = Math.max(MIN_WIDTH, Math.round(width * zoom))
+  const dx = Math.round((bounds.width - clamped) / 2)
+  mainWindow.setBounds({ x: bounds.x + dx, y: bounds.y, width: clamped, height: bounds.height })
+})
 ipcMain.handle(IPC.ANIMATE_HEIGHT, () => {})
 ipcMain.on(IPC.HIDE_WINDOW, () => mainWindow?.hide())
 ipcMain.handle(IPC.IS_VISIBLE, () => mainWindow?.isVisible() ?? false)
