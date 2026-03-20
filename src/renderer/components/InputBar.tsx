@@ -38,6 +38,12 @@ const HELP_TEXT = [
 
 interface SkillEntry { name: string; description: string }
 
+interface ActivePrefix {
+  type: 'command' | 'skill'
+  value: string
+  label: string
+}
+
 function useSkillCache(): SkillEntry[] {
   const [skills, setSkills] = useState<SkillEntry[]>([])
   useEffect(() => {
@@ -58,6 +64,7 @@ export function InputBar() {
   const [skillFilter, setSkillFilter] = useState<string | null>(null)
   const [skillIndex, setSkillIndex] = useState(0)
   const [isMultiLine, setIsMultiLine] = useState(false)
+  const [activePrefix, setActivePrefix] = useState<ActivePrefix | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLTextAreaElement | null>(null)
@@ -154,6 +161,7 @@ export function InputBar() {
   useEffect(() => () => { if (measureRef.current) measureRef.current.remove() }, [])
 
   const updateSlashFilter = useCallback((value: string) => {
+    if (activePrefix) { setSlashFilter(null); setSkillFilter(null); return }
     const slashMatch = value.match(/^(\/[a-zA-Z-]*)$/)
     if (slashMatch) {
       setSlashFilter(slashMatch[1])
@@ -172,7 +180,7 @@ export function InputBar() {
 
     setSlashFilter(null)
     setSkillFilter(null)
-  }, [])
+  }, [activePrefix])
 
   const executeCommand = useCallback((cmd: SlashCommand) => {
     switch (cmd.command) {
@@ -312,18 +320,17 @@ export function InputBar() {
     setInput('')
     setSlashFilter(null)
     setSkillFilter(null)
-    executeCommand(cmd)
-  }, [executeCommand])
+    setActivePrefix({ type: 'command', value: cmd.command, label: cmd.command })
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [])
 
   const handleSkillSelect = useCallback((skill: SkillEntry) => {
-    const prompt = `$${skill.name}`
     setInput('')
     setSlashFilter(null)
     setSkillFilter(null)
-    if (textareaRef.current) textareaRef.current.style.height = `${INPUT_MIN_HEIGHT}px`
-    sendMessage(prompt)
+    setActivePrefix({ type: 'skill', value: `$${skill.name}`, label: skill.name })
     requestAnimationFrame(() => textareaRef.current?.focus())
-  }, [sendMessage])
+  }, [])
 
   const handleSend = useCallback(() => {
     if (showSlashMenu) {
@@ -359,14 +366,31 @@ export function InputBar() {
         return
       }
     }
-    if (!prompt && attachments.length === 0) return
+    const hasPrefix = !!activePrefix
+    const fullPrompt = hasPrefix ? `${activePrefix!.value} ${prompt}`.trim() : prompt
+    if (!fullPrompt && attachments.length === 0) return
     if (isConnecting) return
+
+    if (hasPrefix && activePrefix!.type === 'command' && !prompt) {
+      const commandMeta = getFilteredCommandsWithExtras(activePrefix!.value, []).find((c) => c.command === activePrefix!.value)
+      if (commandMeta) {
+        executeCommand(commandMeta)
+        setInput('')
+        setSlashFilter(null)
+        setActivePrefix(null)
+        if (textareaRef.current) textareaRef.current.style.height = `${INPUT_MIN_HEIGHT}px`
+        requestAnimationFrame(() => textareaRef.current?.focus())
+        return
+      }
+    }
+
     setInput('')
     setSlashFilter(null)
+    setActivePrefix(null)
     if (textareaRef.current) textareaRef.current.style.height = `${INPUT_MIN_HEIGHT}px`
-    sendMessage(prompt || 'See attached files')
+    sendMessage(fullPrompt || 'See attached files')
     requestAnimationFrame(() => textareaRef.current?.focus())
-  }, [showSlashMenu, slashFilter, slashIndex, handleSlashSelect, input, attachments.length, isConnecting, sendMessage, setPreferredModel, addSystemMessage, executeCommand])
+  }, [showSlashMenu, slashFilter, slashIndex, handleSlashSelect, input, attachments.length, isConnecting, sendMessage, setPreferredModel, addSystemMessage, executeCommand, activePrefix])
 
   const isCtrlN = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'n'
   const isCtrlP = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'p'
@@ -385,8 +409,9 @@ export function InputBar() {
       if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); handleSkillSelect(filteredSkills[skillIndex]); return }
       if (e.key === 'Escape') { e.preventDefault(); setSkillFilter(null); return }
     }
+    if (e.key === 'Backspace' && activePrefix && input === '') { e.preventDefault(); setActivePrefix(null); return }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-    if (e.key === 'Escape' && !showSlashMenu && !showSkillMenu) window.oco.hideWindow()
+    if (e.key === 'Escape' && !showSlashMenu && !showSkillMenu) { if (activePrefix) { setActivePrefix(null); return } window.oco.hideWindow() }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -447,6 +472,22 @@ export function InputBar() {
 
       <div className="w-full" style={{ minHeight: 50 }}>
         <div className="flex items-center w-full" style={{ minHeight: isMultiLine ? 74 : 50 }}>
+          {activePrefix && (
+            <button
+              type="button"
+              className="flex items-center gap-1 shrink-0 rounded-md px-2 py-0.5 text-[12px] font-medium font-mono select-none"
+              style={{
+                background: activePrefix.type === 'skill' ? 'rgba(168,85,247,0.15)' : 'rgba(74,222,128,0.15)',
+                color: activePrefix.type === 'skill' ? '#c084fc' : '#4ade80',
+                border: `1px solid ${activePrefix.type === 'skill' ? 'rgba(168,85,247,0.3)' : 'rgba(74,222,128,0.3)'}`,
+                marginRight: 6,
+              }}
+              onClick={() => setActivePrefix(null)}
+              title="Click or Backspace to remove"
+            >
+              {activePrefix.label}
+            </button>
+          )}
           <textarea
             ref={textareaRef}
             value={input}
