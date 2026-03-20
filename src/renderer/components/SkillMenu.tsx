@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Sparkle } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 interface SkillEntry {
   name: string
@@ -31,14 +32,16 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
     item?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  if (items.length === 0 || !anchorRect || !popoverLayer) return null
+  const { mounted, visible } = useFloatTransition(items.length > 0 && !!anchorRect && !!popoverLayer)
+
+  if (!mounted || !anchorRect || !popoverLayer) return null
 
   return createPortal(
     <motion.div
       data-oco-ui
       data-oco-float
       initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
       exit={{ opacity: 0, y: 4 }}
       transition={{ duration: 0.12 }}
       style={{
@@ -47,6 +50,7 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
         left: anchorRect.left + 12,
         right: window.innerWidth - anchorRect.right + 12,
         pointerEvents: 'auto',
+        visibility: visible ? 'visible' as const : 'hidden' as const,
       }}
     >
       <div
@@ -55,7 +59,7 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
         style={{
           maxHeight: 220,
           background: colors.popoverBg,
-          backdropFilter: 'blur(20px)',
+          backdropFilter: visible ? 'blur(20px)' : 'none',
           border: `1px solid ${colors.popoverBorder}`,
           boxShadow: colors.popoverShadow,
         }}

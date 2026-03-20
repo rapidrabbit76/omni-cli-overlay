@@ -5,6 +5,7 @@ import { Terminal, CaretDown, Check, FolderOpen, Plus, X } from '@phosphor-icons
 import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 /* ─── Model Picker (inline — tightly coupled to StatusBar) ─── */
 
@@ -25,6 +26,7 @@ function ModelPicker() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ bottom: 0, left: 0 })
+  const { mounted: floatMounted, visible: floatVisible } = useFloatTransition(open)
 
   const isBusy = tab?.status === 'running' || tab?.status === 'connecting'
 
@@ -48,6 +50,8 @@ function ModelPicker() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
+
+  useEffect(() => { if (floatVisible) updatePos() }, [floatVisible, updatePos])
 
   const handleToggle = () => {
     if (isBusy) return
@@ -93,12 +97,12 @@ function ModelPicker() {
         <CaretDown size={10} style={{ opacity: 0.6 }} />
       </button>
 
-      {popoverLayer && open && createPortal(
+      {popoverLayer && floatMounted && createPortal(
         <motion.div
           ref={popoverRef}
           data-oco-ui
           initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={floatVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
           exit={{ opacity: 0, y: 4 }}
           transition={{ duration: 0.12 }}
           className="rounded-xl"
@@ -109,8 +113,9 @@ function ModelPicker() {
             width: 220,
             pointerEvents: 'auto',
             background: colors.popoverBg,
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
+            backdropFilter: floatVisible ? 'blur(20px)' : 'none',
+            WebkitBackdropFilter: floatVisible ? 'blur(20px)' : 'none',
+            visibility: floatVisible ? 'visible' as const : 'hidden' as const,
             boxShadow: colors.popoverShadow,
             border: `1px solid ${colors.popoverBorder}`,
           }}

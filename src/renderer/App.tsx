@@ -68,10 +68,13 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
       rafId = requestAnimationFrame(() => {
         const { width, height } = measureAllUI()
         if (width === prevW && height === prevH) return
+        const hasFloats = !!document.querySelector('[data-oco-float]')
         const isGrowing = height >= prevH
         if (isGrowing) {
           clearTimeout(shrinkTimer)
           applySize(width, height)
+        } else if (hasFloats) {
+          clearTimeout(shrinkTimer)
         } else {
           clearTimeout(shrinkTimer)
           shrinkTimer = window.setTimeout(() => applySize(width, height), SHRINK_DELAY_MS)
