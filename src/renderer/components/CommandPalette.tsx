@@ -53,15 +53,14 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 320,
-            maxHeight: 400,
+            width: 220,
             zIndex: 100,
             background: colors.popoverBg,
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
             border: `1px solid ${colors.popoverBorder}`,
-            borderRadius: 14,
-            boxShadow: '0 16px 48px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2)',
+            borderRadius: 10,
+            boxShadow: '0 12px 36px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.15)',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -69,15 +68,12 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
         >
           <div
             style={{
-              padding: '12px 16px 8px',
+              padding: '6px 10px 4px',
               borderBottom: `1px solid ${colors.containerBorder}`,
             }}
           >
-            <div style={{ fontSize: 13, fontWeight: 600, color: colors.textPrimary }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: colors.textPrimary }}>
               {title || MODE_TITLES[mode]}
-            </div>
-            <div style={{ fontSize: 10, color: colors.textTertiary, marginTop: 2 }}>
-              {hintText}
             </div>
           </div>
 
@@ -85,8 +81,7 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
             ref={listRef}
             style={{
               overflowY: 'auto',
-              padding: '4px 0',
-              maxHeight: 320,
+              padding: '2px 0',
             }}
           >
             {items.map((item, i) => {
@@ -101,8 +96,8 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 10,
-                    padding: '8px 16px',
+                    gap: 6,
+                    padding: '4px 10px',
                     background: isSelected ? colors.accentSoft : 'transparent',
                     border: 'none',
                     cursor: 'pointer',
@@ -112,18 +107,18 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
                 >
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 5,
+                      height: 5,
                       borderRadius: '50%',
                       background: item.active ? colors.accent : 'transparent',
-                      border: item.active ? 'none' : `1.5px solid ${colors.textTertiary}`,
+                      border: item.active ? 'none' : `1px solid ${colors.textTertiary}`,
                       flexShrink: 0,
                     }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: isSelected ? 500 : 400,
                         color: isSelected ? colors.textPrimary : colors.textSecondary,
                         whiteSpace: 'nowrap',
@@ -133,25 +128,11 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
                     >
                       {item.label}
                     </div>
-                    {item.description && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: colors.textTertiary,
-                          marginTop: 1,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {item.description}
-                      </div>
-                    )}
                   </div>
                   {isSelected && (
                     <span
                       style={{
-                        fontSize: 10,
+                        fontSize: 9,
                         color: colors.accent,
                         flexShrink: 0,
                         fontWeight: 500,
@@ -165,7 +146,7 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
             })}
 
             {items.length === 0 && (
-              <div style={{ padding: '16px', textAlign: 'center', fontSize: 11, color: colors.textTertiary }}>
+              <div style={{ padding: '8px 10px', textAlign: 'center', fontSize: 10, color: colors.textTertiary }}>
                 No items available
               </div>
             )}

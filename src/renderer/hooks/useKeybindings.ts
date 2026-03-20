@@ -103,6 +103,7 @@ export function useKeybindings(
         }
         if (combo === keybindings['picker.cancel'] || e.key === 'Escape') {
           e.preventDefault()
+          e.stopPropagation()
           onAction('picker.cancel')
           return
         }

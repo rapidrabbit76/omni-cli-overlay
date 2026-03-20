@@ -12,7 +12,8 @@ import { useHealthReconciliation } from './hooks/useHealthReconciliation'
 import { useKeybindings } from './hooks/useKeybindings'
 import { useSessionStore, initSessionDefaults, AVAILABLE_MODELS, REASONING_LEVELS } from './stores/sessionStore'
 import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme'
-import type { KeybindingAction, SessionMeta } from '../shared/types'
+import { HISTORY_PICKER_OPEN_EVENT } from './components/HistoryPicker'
+import type { KeybindingAction } from '../shared/types'
 
 const TRANSITION = { duration: 0.26, ease: [0.4, 0, 0.1, 1] as const }
 const WINDOW_PAD = 32
@@ -84,17 +85,6 @@ function reasoningItems(currentLevel: string | null): PaletteItem[] {
     label: r.label,
     active: r.id === currentLevel,
   }))
-}
-
-function sessionToItem(s: SessionMeta): PaletteItem {
-  const label = s.slug || s.sessionId.substring(0, 12)
-  const diff = Date.now() - new Date(s.lastTimestamp).getTime()
-  const mins = Math.floor(diff / 60000)
-  let ago = 'just now'
-  if (mins >= 1 && mins < 60) ago = `${mins}m ago`
-  else if (mins >= 60 && mins < 1440) ago = `${Math.floor(mins / 60)}h ago`
-  else if (mins >= 1440) ago = `${Math.floor(mins / 1440)}d ago`
-  return { id: s.sessionId, label, description: ago }
 }
 
 export default function App() {
@@ -205,8 +195,6 @@ export default function App() {
   const [paletteItems, setPaletteItems] = useState<PaletteItem[]>([])
   const [paletteIndex, setPaletteIndex] = useState(0)
   const [paletteTitle, setPaletteTitle] = useState('')
-  const historyCacheRef = useRef<SessionMeta[]>([])
-
   const openPalette = useCallback((mode: PaletteMode) => {
     const store = useSessionStore.getState()
     let items: PaletteItem[] = []
@@ -222,12 +210,8 @@ export default function App() {
       title = 'Reasoning Level'
       initialIndex = Math.max(0, items.findIndex((item) => item.active))
     } else if (mode === 'history') {
-      title = 'Session History'
-      items = historyCacheRef.current.map(sessionToItem)
-      window.oco.listSessions().then((sessions) => {
-        historyCacheRef.current = sessions
-        setPaletteItems(sessions.map(sessionToItem))
-      }).catch(() => {})
+      window.dispatchEvent(new Event(HISTORY_PICKER_OPEN_EVENT))
+      return
     }
 
     setPaletteMode(mode)
@@ -249,12 +233,6 @@ export default function App() {
     } else if (paletteMode === 'reasoning') {
       store.setPreferredReasoning(item.id)
       store.addSystemMessage(`Reasoning → ${item.label}`)
-    } else if (paletteMode === 'history') {
-      const session = historyCacheRef.current.find((s) => s.sessionId === item.id)
-      if (session) {
-        const title = session.slug || session.sessionId.substring(0, 12)
-        void store.resumeSession(session.sessionId, title)
-      }
     }
     closePalette()
   }, [paletteMode, closePalette])

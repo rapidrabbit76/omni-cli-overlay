@@ -4,7 +4,9 @@ import { RunManager } from './run-manager'
 import { WsTransport } from './ws-transport'
 import { normalizeNotification } from './event-normalizer'
 import { log as _log } from '../logger'
-import type { TabStatus, TabRegistryEntry, HealthReport, RunOptions, EnrichedError } from '../../shared/types'
+import type { TabStatus, TabRegistryEntry, HealthReport, RunOptions, EnrichedError, SessionMeta } from '../../shared/types'
+import type { ThreadListResponse } from '../../shared/codex-protocol/v2/ThreadListResponse'
+import type { ThreadSourceKind } from '../../shared/codex-protocol/v2/ThreadSourceKind'
 
 const MAX_QUEUE_DEPTH = 32
 
@@ -213,6 +215,27 @@ export class ControlPlane extends EventEmitter {
       elapsedMs: inflight ? Date.now() - this.tabs.get(inflight.tabId)!.lastActivityAt : 0,
       toolCallCount: 0,
     }
+  }
+
+  async listThreads(cwd?: string): Promise<SessionMeta[]> {
+    await this.initialize()
+
+    const sourceKinds: ThreadSourceKind[] = ['cli', 'vscode', 'appServer']
+    const result = await this.wsTransport.request<ThreadListResponse>('thread/list', {
+      sortKey: 'updated_at',
+      limit: 50,
+      sourceKinds,
+      archived: false,
+      cwd: cwd || null,
+    })
+
+    return result.data.map((thread) => ({
+      sessionId: thread.id,
+      slug: thread.name,
+      firstMessage: thread.preview || null,
+      lastTimestamp: new Date(thread.updatedAt * 1000).toISOString(),
+      size: 0,
+    }))
   }
 
   shutdown(): void {

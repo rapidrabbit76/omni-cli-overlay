@@ -7,6 +7,8 @@ import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
 import type { SessionMeta } from '../../shared/types'
 
+export const HISTORY_PICKER_OPEN_EVENT = 'oco:open-history-picker'
+
 function formatTimeAgo(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime()
   const mins = Math.floor(diff / 60000)
@@ -17,12 +19,6 @@ function formatTimeAgo(isoDate: string): string {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
   return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}K`
-  return `${(bytes / (1024 * 1024)).toFixed(1)}M`
 }
 
 export function HistoryPicker() {
@@ -42,24 +38,34 @@ export function HistoryPicker() {
   const [open, setOpen] = useState(false)
   const [sessions, setSessions] = useState<SessionMeta[]>([])
   const [loading, setLoading] = useState(false)
+  const [focusIndex, setFocusIndex] = useState(0)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number; maxHeight?: number }>({ right: 0 })
 
   const updatePos = useCallback(() => {
-    if (!triggerRef.current) return
-    const rect = triggerRef.current.getBoundingClientRect()
-    if (isExpanded) {
-      const top = rect.bottom + 6
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      if (isExpanded) {
+        const top = rect.bottom + 6
+        setPos({
+          top,
+          right: window.innerWidth - rect.right,
+          maxHeight: window.innerHeight - top - 12,
+        })
+      } else {
+        setPos({
+          bottom: window.innerHeight - rect.top + 6,
+          right: window.innerWidth - rect.right,
+        })
+      }
+    } else {
+      const top = Math.round(window.innerHeight * 0.25)
       setPos({
         top,
-        right: window.innerWidth - rect.right,
-        maxHeight: window.innerHeight - top - 12,
-      })
-    } else {
-      setPos({
-        bottom: window.innerHeight - rect.top + 6,
-        right: window.innerWidth - rect.right,
+        right: Math.round((window.innerWidth - 320) / 2),
+        maxHeight: window.innerHeight - top - 24,
       })
     }
   }, [isExpanded])
@@ -75,32 +81,88 @@ export function HistoryPicker() {
     setLoading(false)
   }, [effectiveProjectPath])
 
+  const openPicker = useCallback(() => {
+    if (!open) {
+      updatePos()
+      void loadSessions()
+      setFocusIndex(0)
+      setOpen(true)
+    }
+  }, [open, updatePos, loadSessions])
+
+  const handleSelect = useCallback((session: SessionMeta) => {
+    setOpen(false)
+    const title = session.slug
+      || (session.firstMessage && session.firstMessage.length > 30
+        ? session.firstMessage.substring(0, 27) + '...'
+        : session.firstMessage)
+      || 'Resumed'
+    void resumeSession(session.sessionId, title, effectiveProjectPath)
+  }, [resumeSession, effectiveProjectPath])
+
+  useEffect(() => {
+    const handler = () => openPicker()
+    window.addEventListener(HISTORY_PICKER_OPEN_EVENT, handler)
+    return () => window.removeEventListener(HISTORY_PICKER_OPEN_EVENT, handler)
+  }, [openPicker])
+
   useEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
+    const handleMouse = (e: MouseEvent) => {
       const target = e.target as Node
       if (triggerRef.current?.contains(target)) return
       if (popoverRef.current?.contains(target)) return
       setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+    const handleKey = (e: KeyboardEvent) => {
+      const isDown = (e.key === 'ArrowDown') || (e.ctrlKey && e.key === 'n')
+      const isUp = (e.key === 'ArrowUp') || (e.ctrlKey && e.key === 'p')
+      if (isDown) {
+        e.preventDefault()
+        e.stopPropagation()
+        setFocusIndex((i) => {
+          const next = Math.min(i + 1, sessions.length - 1)
+          itemRefs.current.get(next)?.scrollIntoView({ block: 'nearest' })
+          return next
+        })
+        return
+      }
+      if (isUp) {
+        e.preventDefault()
+        e.stopPropagation()
+        setFocusIndex((i) => {
+          const next = Math.max(i - 1, 0)
+          itemRefs.current.get(next)?.scrollIntoView({ block: 'nearest' })
+          return next
+        })
+        return
+      }
+      if (e.key === 'Enter' && sessions[focusIndex]) {
+        e.preventDefault()
+        e.stopPropagation()
+        handleSelect(sessions[focusIndex])
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopPropagation()
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleMouse)
+    document.addEventListener('keydown', handleKey, true)
+    return () => {
+      document.removeEventListener('mousedown', handleMouse)
+      document.removeEventListener('keydown', handleKey, true)
+    }
+  }, [open, sessions, focusIndex, handleSelect])
 
   const handleToggle = () => {
     if (!open) {
-      updatePos()
-      void loadSessions()
+      openPicker()
+    } else {
+      setOpen(false)
     }
-    setOpen((o) => !o)
-  }
-
-  const handleSelect = (session: SessionMeta) => {
-    setOpen(false)
-    const title = session.firstMessage
-      ? (session.firstMessage.length > 30 ? session.firstMessage.substring(0, 27) + '...' : session.firstMessage)
-      : session.slug || 'Resumed'
-    void resumeSession(session.sessionId, title, effectiveProjectPath)
   }
 
   return (
@@ -129,7 +191,7 @@ export function HistoryPicker() {
             ...(pos.top != null ? { top: pos.top } : {}),
             ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
             right: pos.right,
-            width: 280,
+            width: 320,
             pointerEvents: 'auto',
             background: colors.popoverBg,
             backdropFilter: 'blur(20px)',
@@ -146,7 +208,7 @@ export function HistoryPicker() {
             Recent Sessions
           </div>
 
-          <div className="overflow-y-auto py-1" style={{ maxHeight: pos.maxHeight != null ? undefined : 180 }}>
+          <div className="overflow-y-auto py-1" style={{ maxHeight: pos.maxHeight != null ? undefined : 320 }}>
             {loading && (
               <div className="px-3 py-4 text-center text-[11px]" style={{ color: colors.textTertiary }}>
                 Loading...
@@ -159,21 +221,23 @@ export function HistoryPicker() {
               </div>
             )}
 
-            {!loading && sessions.map((session) => (
+            {!loading && sessions.map((session, idx) => (
               <button
                 key={session.sessionId}
+                ref={(el) => { if (el) itemRefs.current.set(idx, el); else itemRefs.current.delete(idx) }}
                 onClick={() => handleSelect(session)}
+                onMouseEnter={() => setFocusIndex(idx)}
                 className="w-full flex items-start gap-2.5 px-3 py-2 text-left transition-colors"
+                style={idx === focusIndex ? { background: colors.popoverBorder } : undefined}
               >
                 <ChatCircle size={13} className="flex-shrink-0 mt-0.5" style={{ color: colors.textTertiary }} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] truncate" style={{ color: colors.textPrimary }}>
-                    {session.firstMessage || session.slug || session.sessionId.substring(0, 8)}
+                    {session.slug || session.firstMessage || session.sessionId.substring(0, 8)}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: colors.textTertiary }}>
                     <span>{formatTimeAgo(session.lastTimestamp)}</span>
-                    <span>{formatSize(session.size)}</span>
-                    {session.slug && <span className="truncate">{session.slug}</span>}
+                    {session.slug && session.firstMessage && <span className="truncate">{session.firstMessage}</span>}
                   </div>
                 </div>
               </button>

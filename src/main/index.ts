@@ -263,32 +263,13 @@ ipcMain.handle(IPC.STATUS, () => controlPlane.getHealth())
 ipcMain.handle(IPC.TAB_HEALTH, () => controlPlane.getHealth())
 ipcMain.handle(IPC.CLOSE_TAB, (_event, tabId: string) => controlPlane.closeTab(tabId))
 
-ipcMain.handle(IPC.LIST_SESSIONS, async () => {
-  const indexPath = join(homedir(), '.codex', 'session_index.jsonl')
-  if (!existsSync(indexPath)) return []
-
-  const latestById = new Map<string, { thread_name?: string; updated_at?: string }>()
-  await new Promise<void>((resolve) => {
-    const rl = createInterface({ input: createReadStream(indexPath) })
-    rl.on('line', (line) => {
-      try {
-        const obj = JSON.parse(line)
-        if (obj?.id) latestById.set(obj.id, obj)
-      } catch {}
-    })
-    rl.on('close', () => resolve())
-  })
-
-  const sessions = Array.from(latestById.entries()).map(([sessionId, meta]) => ({
-    sessionId,
-    slug: typeof meta.thread_name === 'string' ? meta.thread_name : null,
-    firstMessage: null,
-    lastTimestamp: typeof meta.updated_at === 'string' ? meta.updated_at : new Date(0).toISOString(),
-    size: 0,
-  }))
-
-  sessions.sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime())
-  return sessions.slice(0, 50)
+ipcMain.handle(IPC.LIST_SESSIONS, async (_event, projectPath?: string) => {
+  try {
+    return await controlPlane.listThreads(projectPath || undefined)
+  } catch (err) {
+    log(`listThreads RPC failed: ${(err as Error).message}`)
+    return []
+  }
 })
 
 function locateCodexRollout(sessionId: string): string | null {
