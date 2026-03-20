@@ -11,6 +11,7 @@
     "dist": "electron-vite build --mode production && electron-builder --mac --dir",
     "dist:dmg": "electron-vite build --mode production && electron-builder --mac dmg",
     "dist:win": "electron-vite build --mode production && electron-builder --win nsis",
+    "preinstall": "npx only-allow pnpm",
     "doctor": "bash scripts/doctor.sh",
     "postinstall": "electron-builder install-app-deps && bash scripts/patch-dev-icon.sh"
   },
@@ -34,6 +35,7 @@
       "resources/**/*",
       "package.json"
     ],
+    "artifactName": "OCO-${arch}.${ext}",
     "mac": {
       "icon": "resources/icon.icns",
       "entitlements": "resources/entitlements.mac.plist",
@@ -42,6 +44,9 @@
         "NSMicrophoneUsageDescription": "OCO uses your microphone to transcribe voice input locally with Whisper."
       }
     }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron"]
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",
