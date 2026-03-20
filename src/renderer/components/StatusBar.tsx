@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Terminal, CaretDown, Check, FolderOpen, Plus, X } from '@phosphor-icons/react'
-import { useSessionStore, REASONING_LEVELS } from '../stores/sessionStore'
+import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
 
@@ -68,8 +68,10 @@ function ModelPicker() {
     return defaultModel?.label || availableModels[0]?.label || 'Model'
   })()
 
+  const reasoningLevels = getReasoningLevelsForModel({ availableModels, preferredModel })
+
   const activeReasoningLabel = (() => {
-    const r = REASONING_LEVELS.find((r) => r.id === preferredReasoning)
+    const r = reasoningLevels.find((r) => r.id === preferredReasoning)
     return r?.label || 'Med'
   })()
 
@@ -143,8 +145,9 @@ function ModelPicker() {
               Reasoning Effort
             </div>
             <div className="flex gap-1 px-3 py-1.5">
-              {REASONING_LEVELS.map((r) => {
-                const isActive = preferredReasoning === r.id || (!preferredReasoning && r.id === 'medium')
+              {reasoningLevels.map((r) => {
+                const defaultEffort = availableModels.find((m) => m.id === preferredModel)?.defaultReasoningEffort || 'medium'
+                const isActive = preferredReasoning === r.id || (!preferredReasoning && r.id === defaultEffort)
                 return (
                   <button
                     type="button"

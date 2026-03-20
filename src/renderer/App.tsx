@@ -10,7 +10,7 @@ import { PopoverLayerProvider } from './components/PopoverLayer'
 import { useCodexEvents } from './hooks/useCodexEvents'
 import { useHealthReconciliation } from './hooks/useHealthReconciliation'
 import { useKeybindings } from './hooks/useKeybindings'
-import { useSessionStore, initSessionDefaults, REASONING_LEVELS } from './stores/sessionStore'
+import { useSessionStore, initSessionDefaults, getReasoningLevelsForModel } from './stores/sessionStore'
 import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme'
 import { HISTORY_PICKER_OPEN_EVENT } from './components/HistoryPicker'
 import type { KeybindingAction } from '../shared/types'
@@ -107,8 +107,8 @@ function modelItems(models: Array<{ id: string; label: string }>, currentModel: 
   }))
 }
 
-function reasoningItems(currentLevel: string | null): PaletteItem[] {
-  return REASONING_LEVELS.map((r) => ({
+function reasoningItems(levels: Array<{ id: string; label: string }>, currentLevel: string | null): PaletteItem[] {
+  return levels.map((r) => ({
     id: r.id,
     label: r.label,
     active: r.id === currentLevel,
@@ -234,7 +234,8 @@ export default function App() {
       title = 'Switch Model'
       initialIndex = Math.max(0, items.findIndex((item) => item.active))
     } else if (mode === 'reasoning') {
-      items = reasoningItems(store.preferredReasoning)
+      const levels = getReasoningLevelsForModel({ availableModels: store.availableModels, preferredModel: store.preferredModel })
+      items = reasoningItems(levels, store.preferredReasoning)
       title = 'Reasoning Level'
       initialIndex = Math.max(0, items.findIndex((item) => item.active))
     } else if (mode === 'history') {
