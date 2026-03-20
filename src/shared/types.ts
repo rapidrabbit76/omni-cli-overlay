@@ -71,6 +71,7 @@ export interface RunOptions {
   model?: string
   reasoningEffort?: string
   autoApprove?: boolean
+  yoloMode?: boolean
   addDirs?: string[]
 }
 
@@ -285,6 +286,7 @@ export const IPC = {
   SET_APP_SETTINGS: 'oco:set-app-settings',
   APP_SETTINGS_CHANGED: 'oco:app-settings-changed',
 
+  RELAUNCH: 'oco:relaunch',
   LIST_SKILLS: 'oco:list-skills',
   DRAG_MOVE: 'oco:drag-move',
 

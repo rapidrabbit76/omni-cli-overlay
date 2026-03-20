@@ -47,6 +47,7 @@ export interface OcoAPI {
   animateHeight(from: number, to: number, durationMs: number): Promise<void>
   hideWindow(): void
   isVisible(): Promise<boolean>
+  relaunch(): Promise<void>
   dragMove(deltaX: number, deltaY: number): void
   setIgnoreMouseEvents(ignore: boolean, options?: { forward?: boolean }): void
   onEvent(callback: (tabId: string, event: NormalizedEvent) => void): () => void
@@ -81,6 +82,7 @@ const api: OcoAPI = {
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),
   getShortcutSettings: () => ipcRenderer.invoke(IPC.GET_SHORTCUT_SETTINGS),
   setShortcutSettings: (settings) => ipcRenderer.invoke(IPC.SET_SHORTCUT_SETTINGS, settings),
+  relaunch: () => ipcRenderer.invoke(IPC.RELAUNCH),
   getAppSettings: () => ipcRenderer.invoke(IPC.GET_APP_SETTINGS),
   setAppSettings: (settings) => ipcRenderer.invoke(IPC.SET_APP_SETTINGS, settings),
   onAppSettingsChanged: (callback) => {

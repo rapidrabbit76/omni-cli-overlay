@@ -231,6 +231,11 @@ ipcMain.handle(IPC.SET_APP_SETTINGS, (_event, settings: Record<string, unknown>)
   return true
 })
 
+ipcMain.handle(IPC.RELAUNCH, () => {
+  app.relaunch()
+  app.quit()
+})
+
 ipcMain.on(IPC.DRAG_MOVE, (event, deltaX: number, deltaY: number) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   if (!win || win.isDestroyed()) return

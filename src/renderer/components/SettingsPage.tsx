@@ -10,6 +10,7 @@ import {
   Gear,
   Info,
   Keyboard,
+  Lightning,
   MoonStars,
   Target,
   X,
@@ -24,6 +25,7 @@ interface AppSettings {
   defaultReasoning: string
   defaultDirectory: string
   rememberPosition: boolean
+  yoloMode: boolean
   keybindings?: Partial<KeybindingMap>
 }
 
@@ -32,6 +34,7 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultReasoning: REASONING_LEVELS[1].id,
   defaultDirectory: '~',
   rememberPosition: false,
+  yoloMode: true,
 }
 
 const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta'])
@@ -455,7 +458,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
-                <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
+                <div className={rowClassName} style={rowBaseStyle}>
                   <div className="flex items-center gap-3">
                     <FolderOpen size={16} style={{ color: colors.textTertiary }} />
                     <span className="text-[11px]">Default Directory</span>
@@ -476,6 +479,27 @@ export default function SettingsPage() {
                       Browse
                     </button>
                   </div>
+                </div>
+
+                <div className={rowClassName} style={{ ...rowBaseStyle, borderBottom: 'none' }}>
+                  <div className="flex items-center gap-3">
+                    <Lightning size={16} weight="fill" style={{ color: appSettings.yoloMode ? '#f59e0b' : colors.textTertiary }} />
+                    <div>
+                      <span className="text-[11px]">YOLO Mode</span>
+                      <div className="text-[9px]" style={{ color: colors.textTertiary }}>Bypass all approvals & sandbox</div>
+                    </div>
+                  </div>
+                  <RowToggle
+                    checked={appSettings.yoloMode}
+                    onChange={(v) => {
+                      updateAppSetting('yoloMode', v)
+                      setTimeout(() => window.oco.relaunch(), 300)
+                    }}
+                    label="Toggle YOLO mode"
+                    accent="#f59e0b"
+                    background={colors.surfaceSecondary}
+                    border={colors.containerBorder}
+                  />
                 </div>
               </div>
 

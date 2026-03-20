@@ -18,11 +18,13 @@ export class RunManager {
   constructor(private transport: WsTransport) {}
 
   async startThread(options: RunOptions): Promise<string> {
+    const approvalPolicy = options.autoApprove ? 'on-request' : 'unless-allow-listed'
+    const sandbox = options.yoloMode ? 'danger-full-access' : 'workspace-write'
     const result = await this.transport.request<ThreadStartResponse>('thread/start', {
       model: options.model || undefined,
       cwd: resolveHomePath(options.projectPath),
-      approvalPolicy: options.autoApprove ? 'on-request' : 'unless-allow-listed',
-      sandbox: 'workspace-write',
+      approvalPolicy,
+      sandbox,
       experimentalRawEvents: false,
       persistExtendedHistory: false,
       config: options.reasoningEffort
@@ -34,12 +36,14 @@ export class RunManager {
   }
 
   async resumeThread(threadId: string, options: RunOptions): Promise<string> {
+    const approvalPolicy = options.autoApprove ? 'on-request' : 'unless-allow-listed'
+    const sandbox = options.yoloMode ? 'danger-full-access' : 'workspace-write'
     const result = await this.transport.request<ThreadResumeResponse>('thread/resume', {
       threadId,
       model: options.model || undefined,
       cwd: resolveHomePath(options.projectPath),
-      approvalPolicy: options.autoApprove ? 'on-request' : 'unless-allow-listed',
-      sandbox: 'workspace-write',
+      approvalPolicy,
+      sandbox,
       persistExtendedHistory: false,
       config: options.reasoningEffort
         ? { model_reasoning_effort: options.reasoningEffort }

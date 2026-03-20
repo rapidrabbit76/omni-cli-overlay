@@ -93,13 +93,14 @@ export class ControlPlane extends EventEmitter {
     return tabId
   }
 
-  initSession(tabId: string): void {
+  initSession(tabId: string, yoloMode?: boolean): void {
     const requestId = `init-${tabId}`
     this.initRequestIds.add(requestId)
     this.submitPrompt(tabId, requestId, {
       prompt: 'hi',
       projectPath: process.cwd(),
       autoApprove: true,
+      yoloMode,
     }).catch((err) => {
       this.initRequestIds.delete(requestId)
       log(`Init session failed for ${tabId}: ${(err as Error).message}`)

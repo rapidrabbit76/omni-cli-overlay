@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { createServer } from 'net'
+import { readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import { homedir } from 'os'
 import { getCliEnv, findCodexBinary } from '../cli-env'
 import { log as _log } from '../logger'
 
@@ -36,6 +39,17 @@ function makePortOrder(): number[] {
   return ports
 }
 
+function readYoloMode(): boolean {
+  try {
+    const settingsPath = join(homedir(), '.config', 'oco', 'settings.json')
+    if (existsSync(settingsPath)) {
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'))
+      return settings.yoloMode !== false
+    }
+  } catch {}
+  return true
+}
+
 export class AppServerManager {
   private process: ChildProcess | null = null
   private currentWsUrl: string | null = null
@@ -52,14 +66,29 @@ export class AppServerManager {
     const codexBinary = findCodexBinary()
     const env = getCliEnv()
     const ports = makePortOrder()
+    const yolo = readYoloMode()
     let lastError: string | null = null
+
+    if (yolo) {
+      log('YOLO mode enabled — all approvals and sandbox bypassed')
+    }
 
     for (const port of ports) {
       const available = await isPortAvailable(port)
       if (!available) continue
 
       const wsUrl = `ws://127.0.0.1:${port}`
-      const child = spawn(codexBinary, ['app-server', '--listen', wsUrl], {
+      const args = [
+        'app-server',
+        '--listen',
+        wsUrl,
+        '-c',
+        'suppress_unstable_features_warning=true',
+        '--disable',
+        'child_agents_md',
+        ...(yolo ? ['--dangerously-bypass-approvals-and-sandbox'] : []),
+      ]
+      const child = spawn(codexBinary, args, {
         stdio: ['ignore', 'ignore', 'pipe'],
         env,
       })

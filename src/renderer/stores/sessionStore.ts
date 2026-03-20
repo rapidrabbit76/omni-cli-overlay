@@ -38,6 +38,7 @@ interface State {
   staticInfo: StaticInfo | null
   preferredModel: string | null
   preferredReasoning: string | null
+  yoloMode: boolean
   shortcutSettings: ShortcutSettings | null
   shortcutSettingsSaving: boolean
   shortcutSettingsError: string | null
@@ -140,7 +141,8 @@ export function initSessionDefaults(): void {
   window.oco.getAppSettings().then((raw) => {
     const model = typeof raw.defaultModel === 'string' ? raw.defaultModel : null
     const reasoning = typeof raw.defaultReasoning === 'string' ? raw.defaultReasoning : null
-    useSessionStore.setState({ preferredModel: model, preferredReasoning: reasoning })
+    const yoloMode = raw.yoloMode === true
+    useSessionStore.setState({ preferredModel: model, preferredReasoning: reasoning, yoloMode })
   }).catch(() => {})
 }
 
@@ -151,6 +153,7 @@ export const useSessionStore = create<State>((set, get) => ({
   staticInfo: null,
   preferredModel: null,
   preferredReasoning: null,
+  yoloMode: true,
   shortcutSettings: cachedShortcutSettings,
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,
@@ -360,7 +363,7 @@ export const useSessionStore = create<State>((set, get) => ({
       }),
     }))
 
-    const { preferredModel, preferredReasoning } = get()
+    const { preferredModel, preferredReasoning, yoloMode } = get()
     window.oco.prompt(activeTabId, requestId, {
       prompt: fullPrompt,
       projectPath: resolvedPath,
@@ -368,6 +371,7 @@ export const useSessionStore = create<State>((set, get) => ({
       model: preferredModel || undefined,
       reasoningEffort: preferredReasoning || undefined,
       autoApprove: true,
+      yoloMode,
       addDirs: tab.additionalDirs.length > 0 ? tab.additionalDirs : undefined,
     }).catch((err: Error) => {
       get().handleError(activeTabId, { message: err.message, stderrTail: [], exitCode: null, elapsedMs: 0, toolCallCount: 0 })
