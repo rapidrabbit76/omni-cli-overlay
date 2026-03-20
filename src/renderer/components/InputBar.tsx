@@ -4,6 +4,7 @@ import { ArrowUp } from '@phosphor-icons/react'
 import { useSessionStore, AVAILABLE_MODELS } from '../stores/sessionStore'
 import { AttachmentChips } from './AttachmentChips'
 import { SlashCommandMenu, getFilteredCommandsWithExtras, type SlashCommand } from './SlashCommandMenu'
+import { SkillMenu } from './SkillMenu'
 import { useColors } from '../theme'
 
 const INPUT_MIN_HEIGHT = 20
@@ -11,23 +12,70 @@ const INPUT_MAX_HEIGHT = 140
 const MULTILINE_ENTER_HEIGHT = 52
 const MULTILINE_EXIT_HEIGHT = 50
 const INLINE_CONTROLS_RESERVED_WIDTH = 72
+const HELP_TEXT = [
+  '/clear - clear conversation history',
+  '/new - start a new conversation tab',
+  '/exit, /quit - hide OCO window',
+  '/copy - copy latest assistant response',
+  '/cost - show token usage and cost',
+  '/help - show all commands',
+  '/model - show or switch active model',
+  '/status - show session and app status',
+  '/diff - ask Codex for git diff',
+  '/resume - open session history picker',
+  '/fork - fork current conversation to new tab',
+  '/mention - attach files to prompt',
+  '/compact - ask Codex to compact context',
+  '/review - ask Codex to review changes',
+  '/plan - ask Codex to enter plan mode',
+  '/init - ask Codex to generate AGENTS.md',
+  '/fast - toggle fast preset (gpt-5.4 + low)',
+  '/personality - show communication style options',
+  '/permissions - show current approval policy',
+  '/mcp - show MCP config hint',
+  '/agent, /apps, /sandbox-add-read-dir, /feedback, /logout, /debug-config, /statusline, /experimental, /ps - unavailable in OCO',
+].join('\n')
+
+interface SkillEntry { name: string; description: string }
+
+function useSkillCache(): SkillEntry[] {
+  const [skills, setSkills] = useState<SkillEntry[]>([])
+  useEffect(() => {
+    window.oco.listSkills().then(setSkills).catch(() => {})
+  }, [])
+  return skills
+}
+
+function filterSkills(skills: SkillEntry[], filter: string): SkillEntry[] {
+  const q = filter.slice(1).toLowerCase()
+  return skills.filter((s) => s.name.toLowerCase().startsWith(q))
+}
 
 export function InputBar() {
   const [input, setInput] = useState('')
   const [slashFilter, setSlashFilter] = useState<string | null>(null)
   const [slashIndex, setSlashIndex] = useState(0)
+  const [skillFilter, setSkillFilter] = useState<string | null>(null)
+  const [skillIndex, setSkillIndex] = useState(0)
   const [isMultiLine, setIsMultiLine] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLTextAreaElement | null>(null)
+  const allSkills = useSkillCache()
 
   const sendMessage = useSessionStore((s) => s.sendMessage)
   const clearTab = useSessionStore((s) => s.clearTab)
   const addSystemMessage = useSessionStore((s) => s.addSystemMessage)
   const addAttachments = useSessionStore((s) => s.addAttachments)
   const removeAttachment = useSessionStore((s) => s.removeAttachment)
+  const createTab = useSessionStore((s) => s.createTab)
+  const resumeSession = useSessionStore((s) => s.resumeSession)
   const setPreferredModel = useSessionStore((s) => s.setPreferredModel)
+  const setPreferredReasoning = useSessionStore((s) => s.setPreferredReasoning)
   const preferredModel = useSessionStore((s) => s.preferredModel)
+  const preferredReasoning = useSessionStore((s) => s.preferredReasoning)
+  const staticInfo = useSessionStore((s) => s.staticInfo)
+  const tabs = useSessionStore((s) => s.tabs)
   const tab = useSessionStore((s) => s.tabs.find((t) => t.id === s.activeTabId))
   const colors = useColors()
   const isBusy = tab?.status === 'running' || tab?.status === 'connecting'
@@ -36,6 +84,8 @@ export function InputBar() {
   const hasContent = input.trim().length > 0 || attachments.length > 0
   const canSend = !!tab && !isConnecting && hasContent
   const showSlashMenu = slashFilter !== null && !isConnecting
+  const filteredSkills = skillFilter !== null ? filterSkills(allSkills, skillFilter) : []
+  const showSkillMenu = skillFilter !== null && !isConnecting && filteredSkills.length > 0
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -104,13 +154,24 @@ export function InputBar() {
   useEffect(() => () => { if (measureRef.current) measureRef.current.remove() }, [])
 
   const updateSlashFilter = useCallback((value: string) => {
-    const match = value.match(/^(\/[a-zA-Z-]*)$/)
-    if (match) {
-      setSlashFilter(match[1])
+    const slashMatch = value.match(/^(\/[a-zA-Z-]*)$/)
+    if (slashMatch) {
+      setSlashFilter(slashMatch[1])
       setSlashIndex(0)
-    } else {
-      setSlashFilter(null)
+      setSkillFilter(null)
+      return
     }
+
+    const skillMatch = value.match(/^(\$[a-zA-Z0-9_-]*)$/)
+    if (skillMatch) {
+      setSkillFilter(skillMatch[1])
+      setSkillIndex(0)
+      setSlashFilter(null)
+      return
+    }
+
+    setSlashFilter(null)
+    setSkillFilter(null)
   }, [])
 
   const executeCommand = useCallback((cmd: SlashCommand) => {
@@ -119,6 +180,24 @@ export function InputBar() {
         clearTab()
         addSystemMessage('Conversation cleared.')
         break
+      case '/new':
+        createTab().catch(() => addSystemMessage('Failed to create a new tab.'))
+        break
+      case '/exit':
+      case '/quit':
+        window.oco.hideWindow()
+        break
+      case '/copy': {
+        const lastAssistant = [...(tab?.messages || [])].reverse().find((m) => m.role === 'assistant' && m.content.trim().length > 0)
+        if (!lastAssistant) {
+          addSystemMessage('No assistant response to copy yet.')
+          break
+        }
+        navigator.clipboard.writeText(lastAssistant.content)
+          .then(() => addSystemMessage('Copied to clipboard.'))
+          .catch(() => addSystemMessage('Clipboard access failed.'))
+        break
+      }
       case '/cost': {
         if (tab?.lastResult) {
           const r = tab.lastResult
@@ -132,23 +211,119 @@ export function InputBar() {
         }
         break
       }
+      case '/help':
+        addSystemMessage(HELP_TEXT)
+        break
       case '/model': {
         const current = preferredModel || tab?.sessionModel || 'default'
         const lines = AVAILABLE_MODELS.map((m) => `  ${m.id === current ? '●' : '○'} ${m.label} (${m.id})`)
         addSystemMessage(`Codex model\n\n${lines.join('\n')}\n\nSwitch model: /model <name>`)
         break
       }
-      case '/help':
-        addSystemMessage('/clear\n/cost\n/model\n/help')
+      case '/status': {
+        const activeModel = preferredModel || tab?.sessionModel || 'default'
+        const sessionId = tab?.sessionId || '(none yet)'
+        const sessionVersion = tab?.sessionVersion || 'unknown'
+        const appVersion = staticInfo?.version || 'unknown'
+        addSystemMessage(`Status\n\nModel: ${activeModel}\nSession ID: ${sessionId}\nSession version: ${sessionVersion}\nTabs: ${tabs.length}\nOCO version: ${appVersion}`)
+        break
+      }
+      case '/diff':
+        sendMessage('/diff')
+        break
+      case '/resume':
+        addSystemMessage('Open session history with Ctrl+H or click the clock icon.')
+        break
+      case '/fork':
+        if (tab?.sessionId) {
+          resumeSession(tab.sessionId, `${tab.title} (fork)`, tab.workingDirectory).catch(() => addSystemMessage('Failed to fork current session.'))
+        } else {
+          createTab().catch(() => addSystemMessage('Failed to create a fork tab.'))
+        }
+        break
+      case '/mention':
+        window.oco.attachFiles()
+          .then((selected) => {
+            if (selected && selected.length > 0) addAttachments(selected)
+          })
+          .catch(() => addSystemMessage('Failed to attach files.'))
+        break
+      case '/compact':
+        sendMessage('Please compact/summarize our conversation so far.')
+        break
+      case '/review':
+        sendMessage('/review')
+        break
+      case '/plan':
+        sendMessage('/plan')
+        break
+      case '/init':
+        sendMessage('/init')
+        break
+      case '/fast':
+        if (preferredModel === 'gpt-5.4' && preferredReasoning === 'low') {
+          setPreferredModel(null)
+          setPreferredReasoning(null)
+          addSystemMessage('Fast mode disabled.')
+        } else {
+          setPreferredModel('gpt-5.4')
+          setPreferredReasoning('low')
+          addSystemMessage('Fast mode enabled: GPT-5.4 with low reasoning.')
+        }
+        break
+      case '/personality':
+        addSystemMessage('Personalities\n\n- concise\n- balanced\n- mentor\n\nUse your preferred style in your next prompt.')
+        break
+      case '/permissions':
+        addSystemMessage('Approval policy: auto-approve (OCO overlay default).')
+        break
+      case '/mcp':
+        addSystemMessage('MCP servers configured in ~/.codex/config.toml')
+        break
+      case '/agent':
+      case '/apps':
+      case '/sandbox-add-read-dir':
+      case '/feedback':
+      case '/logout':
+      case '/debug-config':
+      case '/statusline':
+      case '/experimental':
+      case '/ps':
+        addSystemMessage('Not available in OCO overlay.')
         break
     }
-  }, [tab, clearTab, addSystemMessage, preferredModel])
+  }, [
+    tab,
+    tabs.length,
+    staticInfo?.version,
+    clearTab,
+    addSystemMessage,
+    addAttachments,
+    sendMessage,
+    createTab,
+    resumeSession,
+    preferredModel,
+    preferredReasoning,
+    setPreferredModel,
+    setPreferredReasoning,
+  ])
 
   const handleSlashSelect = useCallback((cmd: SlashCommand) => {
     setInput('')
     setSlashFilter(null)
+    setSkillFilter(null)
     executeCommand(cmd)
   }, [executeCommand])
+
+  const handleSkillSelect = useCallback((skill: SkillEntry) => {
+    const prompt = `$${skill.name}`
+    setInput('')
+    setSlashFilter(null)
+    setSkillFilter(null)
+    if (textareaRef.current) textareaRef.current.style.height = `${INPUT_MIN_HEIGHT}px`
+    sendMessage(prompt)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [sendMessage])
 
   const handleSend = useCallback(() => {
     if (showSlashMenu) {
@@ -173,6 +348,17 @@ export function InputBar() {
       setSlashFilter(null)
       return
     }
+    const commandMatch = prompt.match(/^\/[a-zA-Z-]+/)
+    if (commandMatch) {
+      const command = commandMatch[0]
+      const commandMeta = getFilteredCommandsWithExtras(command, []).find((c) => c.command === command)
+      if (commandMeta) {
+        executeCommand(commandMeta)
+        setInput('')
+        setSlashFilter(null)
+        return
+      }
+    }
     if (!prompt && attachments.length === 0) return
     if (isConnecting) return
     setInput('')
@@ -180,18 +366,27 @@ export function InputBar() {
     if (textareaRef.current) textareaRef.current.style.height = `${INPUT_MIN_HEIGHT}px`
     sendMessage(prompt || 'See attached files')
     requestAnimationFrame(() => textareaRef.current?.focus())
-  }, [showSlashMenu, slashFilter, slashIndex, handleSlashSelect, input, attachments.length, isConnecting, sendMessage, setPreferredModel, addSystemMessage])
+  }, [showSlashMenu, slashFilter, slashIndex, handleSlashSelect, input, attachments.length, isConnecting, sendMessage, setPreferredModel, addSystemMessage, executeCommand])
+
+  const isCtrlN = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'n'
+  const isCtrlP = (e: React.KeyboardEvent) => e.ctrlKey && e.key === 'p'
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (showSlashMenu) {
       const filtered = getFilteredCommandsWithExtras(slashFilter!, [])
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSlashIndex((i) => (i + 1) % filtered.length); return }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setSlashIndex((i) => (i - 1 + filtered.length) % filtered.length); return }
+      if (e.key === 'ArrowDown' || isCtrlN(e)) { e.preventDefault(); setSlashIndex((i) => (i + 1) % filtered.length); return }
+      if (e.key === 'ArrowUp' || isCtrlP(e)) { e.preventDefault(); setSlashIndex((i) => (i - 1 + filtered.length) % filtered.length); return }
       if (e.key === 'Tab') { e.preventDefault(); if (filtered.length > 0) handleSlashSelect(filtered[slashIndex]); return }
       if (e.key === 'Escape') { e.preventDefault(); setSlashFilter(null); return }
     }
+    if (showSkillMenu) {
+      if (e.key === 'ArrowDown' || isCtrlN(e)) { e.preventDefault(); setSkillIndex((i) => (i + 1) % filteredSkills.length); return }
+      if (e.key === 'ArrowUp' || isCtrlP(e)) { e.preventDefault(); setSkillIndex((i) => (i - 1 + filteredSkills.length) % filteredSkills.length); return }
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); handleSkillSelect(filteredSkills[skillIndex]); return }
+      if (e.key === 'Escape') { e.preventDefault(); setSkillFilter(null); return }
+    }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
-    if (e.key === 'Escape' && !showSlashMenu) window.oco.hideWindow()
+    if (e.key === 'Escape' && !showSlashMenu && !showSkillMenu) window.oco.hideWindow()
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -232,6 +427,14 @@ export function InputBar() {
             onSelect={handleSlashSelect}
             anchorRect={wrapperRef.current?.getBoundingClientRect() ?? null}
             extraCommands={[]}
+          />
+        )}
+        {showSkillMenu && (
+          <SkillMenu
+            items={filteredSkills}
+            selectedIndex={skillIndex}
+            onSelect={handleSkillSelect}
+            anchorRect={wrapperRef.current?.getBoundingClientRect() ?? null}
           />
         )}
       </AnimatePresence>

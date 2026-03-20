@@ -2,7 +2,27 @@ import React, { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import {
-  Trash, Cpu, CurrencyDollar, Question, HardDrives, Sparkle,
+  ArrowsIn,
+  ClockCounterClockwise,
+  Copy,
+  Cpu,
+  CurrencyDollar,
+  GitBranch,
+  GitDiff,
+  HardDrives,
+  Info,
+  Paperclip,
+  Plus,
+  Question,
+  RocketLaunch,
+  ShieldCheck,
+  SignOut,
+  SlidersHorizontal,
+  Sparkle,
+  Trash,
+  WarningCircle,
+  Wrench,
+  X,
 } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
@@ -15,11 +35,35 @@ export interface SlashCommand {
 
 export const SLASH_COMMANDS: SlashCommand[] = [
   { command: '/clear', description: 'Clear conversation history', icon: <Trash size={13} /> },
+  { command: '/new', description: 'Start a new conversation tab', icon: <Plus size={13} /> },
+  { command: '/exit', description: 'Hide OCO overlay window', icon: <SignOut size={13} /> },
+  { command: '/quit', description: 'Hide OCO overlay window', icon: <X size={13} /> },
+  { command: '/copy', description: 'Copy latest assistant response', icon: <Copy size={13} /> },
   { command: '/cost', description: 'Show token usage and cost', icon: <CurrencyDollar size={13} /> },
-  { command: '/model', description: 'Show current model info', icon: <Cpu size={13} /> },
-  { command: '/mcp', description: 'Show MCP server status', icon: <HardDrives size={13} /> },
-  { command: '/skills', description: 'Show available skills', icon: <Sparkle size={13} /> },
-  { command: '/help', description: 'Show available commands', icon: <Question size={13} /> },
+  { command: '/help', description: 'Show all available commands', icon: <Question size={13} /> },
+  { command: '/model', description: 'Show or switch active model', icon: <Cpu size={13} /> },
+  { command: '/status', description: 'Show current session status', icon: <Info size={13} /> },
+  { command: '/diff', description: 'Ask Codex to show git diff', icon: <GitDiff size={13} /> },
+  { command: '/resume', description: 'Resume from saved session history', icon: <ClockCounterClockwise size={13} /> },
+  { command: '/fork', description: 'Fork current session into new tab', icon: <GitBranch size={13} /> },
+  { command: '/mention', description: 'Attach files to the prompt', icon: <Paperclip size={13} /> },
+  { command: '/compact', description: 'Compact/summarize conversation context', icon: <ArrowsIn size={13} /> },
+  { command: '/review', description: 'Ask Codex to review working tree', icon: <Sparkle size={13} /> },
+  { command: '/plan', description: 'Ask Codex to enter plan mode', icon: <SlidersHorizontal size={13} /> },
+  { command: '/init', description: 'Ask Codex to generate AGENTS.md', icon: <RocketLaunch size={13} /> },
+  { command: '/fast', description: 'Toggle fast mode preset', icon: <RocketLaunch size={13} /> },
+  { command: '/personality', description: 'Show communication personality options', icon: <Sparkle size={13} /> },
+  { command: '/permissions', description: 'Show approval policy settings', icon: <ShieldCheck size={13} /> },
+  { command: '/mcp', description: 'Show MCP server configuration hint', icon: <HardDrives size={13} /> },
+  { command: '/agent', description: 'Switch agent threads (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/apps', description: 'Browse apps (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/sandbox-add-read-dir', description: 'Windows-only sandbox helper (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/feedback', description: 'CLI feedback workflow (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/logout', description: 'CLI auth logout flow (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/debug-config', description: 'CLI debug config view (unavailable)', icon: <Wrench size={13} /> },
+  { command: '/statusline', description: 'CLI statusline controls (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/experimental', description: 'CLI experimental controls (unavailable)', icon: <WarningCircle size={13} /> },
+  { command: '/ps', description: 'Background terminal manager (unavailable)', icon: <WarningCircle size={13} /> },
 ]
 
 interface Props {
@@ -89,6 +133,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
           const isSelected = i === selectedIndex
           return (
             <button
+              type="button"
               key={cmd.command}
               onClick={() => onSelect(cmd)}
               className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors"

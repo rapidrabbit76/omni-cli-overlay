@@ -33,6 +33,7 @@ export interface OcoAPI {
   resetTabSession(tabId: string): void
   listSessions(projectPath?: string): Promise<SessionMeta[]>
   loadSession(sessionId: string, projectPath?: string): Promise<SessionLoadMessage[]>
+  listSkills(): Promise<Array<{ name: string; description: string }>>
   getTheme(): Promise<{ isDark: boolean }>
   onThemeChange(callback: (isDark: boolean) => void): () => void
   openSettings(): void
@@ -75,6 +76,7 @@ const api: OcoAPI = {
   resetTabSession: (tabId) => ipcRenderer.send(IPC.RESET_TAB_SESSION, tabId),
   listSessions: (projectPath) => ipcRenderer.invoke(IPC.LIST_SESSIONS, projectPath),
   loadSession: (sessionId, projectPath) => ipcRenderer.invoke(IPC.LOAD_SESSION, { sessionId, projectPath }),
+  listSkills: () => ipcRenderer.invoke(IPC.LIST_SKILLS),
   getTheme: () => ipcRenderer.invoke(IPC.GET_THEME),
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),
   getShortcutSettings: () => ipcRenderer.invoke(IPC.GET_SHORTCUT_SETTINGS),

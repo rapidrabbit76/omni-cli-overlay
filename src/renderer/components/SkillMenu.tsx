@@ -1,0 +1,100 @@
+import React, { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { motion } from 'framer-motion'
+import { Sparkle } from '@phosphor-icons/react'
+import { usePopoverLayer } from './PopoverLayer'
+import { useColors } from '../theme'
+
+interface SkillEntry {
+  name: string
+  description: string
+}
+
+interface Props {
+  items: SkillEntry[]
+  selectedIndex: number
+  onSelect: (skill: SkillEntry) => void
+  anchorRect: DOMRect | null
+}
+
+export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const popoverLayer = usePopoverLayer()
+  const colors = useColors()
+
+  useEffect(() => {
+    if (!listRef.current) return
+    const item = listRef.current.children[selectedIndex] as HTMLElement | undefined
+    item?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIndex])
+
+  if (items.length === 0 || !anchorRect || !popoverLayer) return null
+
+  return createPortal(
+    <motion.div
+      data-oco-ui
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 4 }}
+      transition={{ duration: 0.12 }}
+      style={{
+        position: 'fixed',
+        bottom: window.innerHeight - anchorRect.top + 4,
+        left: anchorRect.left + 12,
+        right: window.innerWidth - anchorRect.right + 12,
+        pointerEvents: 'auto',
+      }}
+    >
+      <div
+        ref={listRef}
+        className="overflow-y-auto rounded-xl py-1"
+        style={{
+          maxHeight: 220,
+          background: colors.popoverBg,
+          backdropFilter: 'blur(20px)',
+          border: `1px solid ${colors.popoverBorder}`,
+          boxShadow: colors.popoverShadow,
+        }}
+      >
+        {items.map((skill, i) => {
+          const isSelected = i === selectedIndex
+          return (
+            <button
+              key={skill.name}
+              type="button"
+              onClick={() => onSelect(skill)}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors"
+              style={{ background: isSelected ? colors.accentLight : 'transparent' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = colors.accentLight }}
+              onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              <span
+                className="flex items-center justify-center w-6 h-6 rounded-md flex-shrink-0"
+                style={{
+                  background: isSelected ? colors.accentSoft : colors.surfaceHover,
+                  color: isSelected ? colors.accent : colors.textTertiary,
+                }}
+              >
+                <Sparkle size={13} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <span
+                  className="text-[12px] font-mono font-medium"
+                  style={{ color: isSelected ? colors.accent : colors.textPrimary }}
+                >
+                  ${skill.name}
+                </span>
+                {skill.description && (
+                  <span className="text-[11px] ml-2" style={{ color: colors.textTertiary }}>
+                    {skill.description}
+                  </span>
+                )}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </motion.div>,
+    popoverLayer,
+  )
+}

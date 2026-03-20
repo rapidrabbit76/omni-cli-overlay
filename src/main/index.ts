@@ -518,6 +518,25 @@ ipcMain.handle(IPC.OPEN_IN_TERMINAL, (_event, arg: string | null | { sessionId?:
   }
 })
 
+ipcMain.handle(IPC.LIST_SKILLS, () => {
+  const skillsDir = join(homedir(), '.codex', 'skills')
+  if (!existsSync(skillsDir)) return []
+  try {
+    return readdirSync(skillsDir)
+      .filter((name) => {
+        const skillMd = join(skillsDir, name, 'SKILL.md')
+        return existsSync(skillMd)
+      })
+      .map((name) => {
+        const content = readFileSync(join(skillsDir, name, 'SKILL.md'), 'utf-8')
+        const descMatch = content.match(/^description:\s*(.+)$/m)
+        return { name, description: descMatch?.[1]?.trim() || '' }
+      })
+  } catch {
+    return []
+  }
+})
+
 ipcMain.handle(IPC.GET_THEME, () => ({ isDark: nativeTheme.shouldUseDarkColors }))
 ipcMain.on(IPC.OPEN_SETTINGS, () => createSettingsWindow())
 ipcMain.handle(IPC.GET_SHORTCUT_SETTINGS, () => currentShortcutSettings)

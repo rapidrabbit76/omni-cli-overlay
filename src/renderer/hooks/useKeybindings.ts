@@ -53,7 +53,10 @@ export function useKeybindings(
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
       const isInput = target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.tagName === 'SELECT'
+      const hasModifier = e.metaKey || e.ctrlKey || e.altKey
       const combo = eventToKey(e)
+
+      if (isInput && !hasModifier && !chordActiveRef.current && !paletteOpen) return
 
       if (chordActiveRef.current) {
         e.preventDefault()
