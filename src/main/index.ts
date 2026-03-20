@@ -10,7 +10,7 @@ const execAsync = promisify(exec)
 import { ControlPlane } from './codex/control-plane'
 import { log as _log, LOG_FILE, flushLogs } from './logger'
 import { DEFAULT_SHORTCUT_SETTINGS, IPC } from '../shared/types'
-import type { RunOptions, NormalizedEvent, EnrichedError, ShortcutSettings } from '../shared/types'
+import type { RunOptions, NormalizedEvent, EnrichedError, ShortcutSettings, ModelInfo } from '../shared/types'
 import { loadShortcutSettings, registerShortcutSettings, saveShortcutSettings } from './shortcut-settings'
 
 const DEBUG_MODE = process.env.OCO_DEBUG === '1'
@@ -648,6 +648,33 @@ ipcMain.handle(IPC.OPEN_IN_TERMINAL, (_event, arg: string | null | { sessionId?:
     return true
   } catch {
     return false
+  }
+})
+
+const FALLBACK_MODELS: ModelInfo[] = [
+  { id: 'gpt-5.4', label: 'GPT-5.4', description: '', hidden: false, isDefault: true, supportedReasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
+  { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high'], defaultReasoningEffort: 'medium' },
+  { id: 'o3', label: 'o3', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium' },
+  { id: 'o4-mini', label: 'o4-mini', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium' },
+]
+
+ipcMain.handle(IPC.LIST_MODELS, async (): Promise<ModelInfo[]> => {
+  try {
+    const models = await controlPlane.listModels()
+    return models
+      .filter((m) => !m.hidden)
+      .map((m) => ({
+        id: m.id,
+        label: m.displayName || m.id,
+        description: m.description,
+        hidden: m.hidden,
+        isDefault: m.isDefault,
+        supportedReasoningEfforts: m.supportedReasoningEfforts.map((r) => r.reasoningEffort),
+        defaultReasoningEffort: m.defaultReasoningEffort,
+      }))
+  } catch (err) {
+    log(`model/list RPC failed, using fallback: ${(err as Error).message}`)
+    return FALLBACK_MODELS
   }
 })
 

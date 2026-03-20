@@ -292,6 +292,7 @@ export const IPC = {
   RELAUNCH: 'oco:relaunch',
   TRANSCRIBE_AUDIO: 'oco:transcribe-audio',
   LIST_SKILLS: 'oco:list-skills',
+  LIST_MODELS: 'oco:list-models',
   DRAG_MOVE: 'oco:drag-move',
 
   STREAM_EVENT: 'oco:stream-event',
@@ -303,6 +304,16 @@ export const IPC = {
  * Convert an Electron-style shortcut string (e.g. "Alt+Space", "CommandOrControl+Shift+K")
  * into a human-readable label with platform symbols (e.g. "⌥ Space", "⌘ ⇧ K").
  */
+export interface ModelInfo {
+  id: string
+  label: string
+  description: string
+  hidden: boolean
+  isDefault: boolean
+  supportedReasoningEfforts: string[]
+  defaultReasoningEffort: string
+}
+
 export function formatShortcutLabel(shortcut: string): string {
   return shortcut
     .replace(/CommandOrControl/g, '⌘')

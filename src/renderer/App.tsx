@@ -10,7 +10,7 @@ import { PopoverLayerProvider } from './components/PopoverLayer'
 import { useCodexEvents } from './hooks/useCodexEvents'
 import { useHealthReconciliation } from './hooks/useHealthReconciliation'
 import { useKeybindings } from './hooks/useKeybindings'
-import { useSessionStore, initSessionDefaults, AVAILABLE_MODELS, REASONING_LEVELS } from './stores/sessionStore'
+import { useSessionStore, initSessionDefaults, REASONING_LEVELS } from './stores/sessionStore'
 import { useColors, useThemeStore, spacing, initSettingsFromFile } from './theme'
 import { HISTORY_PICKER_OPEN_EVENT } from './components/HistoryPicker'
 import type { KeybindingAction } from '../shared/types'
@@ -98,8 +98,8 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref])
 }
 
-function modelItems(currentModel: string | null): PaletteItem[] {
-  return AVAILABLE_MODELS.map((m) => ({
+function modelItems(models: Array<{ id: string; label: string }>, currentModel: string | null): PaletteItem[] {
+  return models.map((m) => ({
     id: m.id,
     label: m.label,
     description: m.id,
@@ -230,7 +230,7 @@ export default function App() {
     let initialIndex = 0
 
     if (mode === 'model') {
-      items = modelItems(store.preferredModel || store.tabs.find((t) => t.id === store.activeTabId)?.sessionModel || null)
+      items = modelItems(store.availableModels, store.preferredModel || store.tabs.find((t) => t.id === store.activeTabId)?.sessionModel || null)
       title = 'Switch Model'
       initialIndex = Math.max(0, items.findIndex((item) => item.active))
     } else if (mode === 'reasoning') {
