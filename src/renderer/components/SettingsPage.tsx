@@ -18,7 +18,7 @@ import {
 } from '@phosphor-icons/react'
 import { DEFAULT_SHORTCUT_SETTINGS, DEFAULT_KEYBINDINGS, KEYBINDING_LABELS, formatShortcutLabel } from '../../shared/types'
 import type { KeybindingMap, KeybindingAction } from '../../shared/types'
-import { REASONING_LEVELS, useSessionStore } from '../stores/sessionStore'
+import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { useColors, useThemeStore, FONT_PRESETS } from '../theme'
 
 interface AppSettings {
@@ -35,7 +35,7 @@ interface AppSettings {
 
 const DEFAULT_APP_SETTINGS: AppSettings = {
   defaultModel: 'gpt-5.4',
-  defaultReasoning: REASONING_LEVELS[1].id,
+  defaultReasoning: 'medium',
   defaultDirectory: '~',
   rememberPosition: false,
   yoloMode: true,
@@ -616,7 +616,10 @@ function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowB
                     className="h-7 rounded-md px-2 text-[10px] outline-none"
                     style={{ minWidth: 120, background: colors.surfacePrimary, color: colors.textPrimary, border: `1px solid ${colors.containerBorder}` }}
                   >
-                    {REASONING_LEVELS.map((r) => (
+                    {getReasoningLevelsForModel({
+                      availableModels: useSessionStore.getState().availableModels,
+                      preferredModel: appSettings.defaultModel,
+                    }).map((r) => (
                       <option key={r.id} value={r.id}>{r.label}</option>
                     ))}
                   </select>

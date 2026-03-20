@@ -19,12 +19,32 @@ const FALLBACK_MODELS: ModelInfo[] = [
   { id: 'o4-mini', label: 'o4-mini', description: '', hidden: false, isDefault: false, supportedReasoningEfforts: ['low', 'medium', 'high', 'xhigh'], defaultReasoningEffort: 'medium' },
 ]
 
-export const REASONING_LEVELS = [
+const REASONING_LABEL_MAP: Record<string, string> = {
+  none: 'None',
+  minimal: 'Min',
+  low: 'Low',
+  medium: 'Med',
+  high: 'High',
+  xhigh: 'XHigh',
+}
+
+const FALLBACK_REASONING_LEVELS = [
   { id: 'low', label: 'Low' },
   { id: 'medium', label: 'Med' },
   { id: 'high', label: 'High' },
   { id: 'xhigh', label: 'XHigh' },
-] as const
+]
+
+export function getReasoningLevelsForModel(state: { availableModels: ModelInfo[]; preferredModel: string | null }): Array<{ id: string; label: string }> {
+  const model = state.availableModels.find((m) => m.id === state.preferredModel) || state.availableModels.find((m) => m.isDefault) || state.availableModels[0]
+  if (!model || model.supportedReasoningEfforts.length === 0) return FALLBACK_REASONING_LEVELS
+  return model.supportedReasoningEfforts.map((id) => ({ id, label: REASONING_LABEL_MAP[id] || id }))
+}
+
+export function getDefaultReasoningForModel(state: { availableModels: ModelInfo[]; preferredModel: string | null }): string {
+  const model = state.availableModels.find((m) => m.id === state.preferredModel) || state.availableModels.find((m) => m.isDefault) || state.availableModels[0]
+  return model?.defaultReasoningEffort || 'medium'
+}
 
 interface StaticInfo {
   version: string
