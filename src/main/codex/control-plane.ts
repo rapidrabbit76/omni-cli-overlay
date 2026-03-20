@@ -7,6 +7,8 @@ import { log as _log } from '../logger'
 import type { TabStatus, TabRegistryEntry, HealthReport, RunOptions, EnrichedError, SessionMeta } from '../../shared/types'
 import type { ThreadListResponse } from '../../shared/codex-protocol/v2/ThreadListResponse'
 import type { ThreadSourceKind } from '../../shared/codex-protocol/v2/ThreadSourceKind'
+import type { SkillsListResponse } from '../../shared/codex-protocol/v2/SkillsListResponse'
+import type { SkillMetadata } from '../../shared/codex-protocol/v2/SkillMetadata'
 
 const MAX_QUEUE_DEPTH = 32
 
@@ -216,6 +218,14 @@ export class ControlPlane extends EventEmitter {
       elapsedMs: inflight ? Date.now() - this.tabs.get(inflight.tabId)!.lastActivityAt : 0,
       toolCallCount: 0,
     }
+  }
+
+  async listSkills(cwd?: string): Promise<SkillMetadata[]> {
+    await this.initialize()
+    const result = await this.wsTransport.request<SkillsListResponse>('skills/list', {
+      cwds: cwd ? [cwd] : undefined,
+    })
+    return result.data.flatMap((entry) => entry.skills)
   }
 
   async listThreads(cwd?: string): Promise<SessionMeta[]> {

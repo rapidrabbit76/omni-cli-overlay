@@ -38,7 +38,7 @@ const HELP_TEXT = [
 
 type VoiceState = 'idle' | 'recording' | 'transcribing'
 
-interface SkillEntry { name: string; description: string }
+interface SkillEntry { name: string; description: string; scope?: string; enabled?: boolean; path?: string }
 
 interface ActivePrefix {
   type: 'command' | 'skill'

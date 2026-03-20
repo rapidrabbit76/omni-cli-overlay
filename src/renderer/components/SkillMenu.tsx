@@ -8,6 +8,9 @@ import { useColors } from '../theme'
 interface SkillEntry {
   name: string
   description: string
+  scope?: string
+  enabled?: boolean
+  path?: string
 }
 
 interface Props {
@@ -85,6 +88,17 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
                 >
                   ${skill.name}
                 </span>
+                {skill.scope && skill.scope !== 'user' && (
+                  <span
+                    className="text-[9px] font-medium ml-1.5 px-1 py-px rounded"
+                    style={{
+                      background: skill.scope === 'repo' ? 'rgba(59,130,246,0.15)' : 'rgba(168,85,247,0.15)',
+                      color: skill.scope === 'repo' ? '#60a5fa' : '#c084fc',
+                    }}
+                  >
+                    {skill.scope}
+                  </span>
+                )}
                 {skill.description && (
                   <span className="text-[11px] ml-2" style={{ color: colors.textTertiary }}>
                     {skill.description}
