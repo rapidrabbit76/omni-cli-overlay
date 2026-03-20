@@ -26,6 +26,7 @@ import {
 } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 export interface SlashCommand {
   command: string
@@ -101,14 +102,16 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
     item?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  if (filtered.length === 0 || !anchorRect || !popoverLayer) return null
+  const { mounted, visible } = useFloatTransition(filtered.length > 0 && !!anchorRect && !!popoverLayer)
+
+  if (!mounted || !anchorRect || !popoverLayer) return null
 
   return createPortal(
     <motion.div
       data-oco-ui
       data-oco-float
       initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
       exit={{ opacity: 0, y: 4 }}
       transition={{ duration: 0.12 }}
       style={{
@@ -117,6 +120,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
         left: anchorRect.left + 12,
         right: window.innerWidth - anchorRect.right + 12,
         pointerEvents: 'auto',
+        visibility: visible ? 'visible' as const : 'hidden' as const,
       }}
     >
       <div
@@ -125,7 +129,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
         style={{
           maxHeight: 220,
           background: colors.popoverBg,
-          backdropFilter: 'blur(20px)',
+          backdropFilter: visible ? 'blur(20px)' : 'none',
           border: `1px solid ${colors.popoverBorder}`,
           boxShadow: colors.popoverShadow,
         }}

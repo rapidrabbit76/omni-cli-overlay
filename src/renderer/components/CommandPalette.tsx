@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useColors } from '../theme'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 export type PaletteMode = 'model' | 'reasoning' | 'history'
 
@@ -39,14 +40,16 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
 
   const hintText = mode === 'history' ? 'Ctrl+N/P navigate · Enter select · Esc close' : 'Ctrl+N/P navigate · Enter select · Esc close'
 
+  const { mounted, visible } = useFloatTransition(open)
+
   return (
     <AnimatePresence>
-      {open && (
+      {mounted && (
         <motion.div
           data-oco-ui
           data-oco-float
           initial={{ opacity: 0, y: 8, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          animate={visible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 8, scale: 0.96 }}
           exit={{ opacity: 0, y: 8, scale: 0.96 }}
           transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
           style={{
@@ -56,8 +59,9 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
             width: 220,
             zIndex: 100,
             background: colors.popoverBg,
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            backdropFilter: visible ? 'blur(24px)' : 'none',
+            WebkitBackdropFilter: visible ? 'blur(24px)' : 'none',
+            visibility: visible ? 'visible' as const : 'hidden' as const,
             border: `1px solid ${colors.popoverBorder}`,
             borderRadius: 10,
             boxShadow: '0 12px 36px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.15)',
