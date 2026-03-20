@@ -12,6 +12,13 @@ release/
 *.dmg
 *.app
 *.zip
+*.exe
+*.msi
+*.deb
+*.rpm
+*.AppImage
+*.snap
+*.blockmap
 
 # OS artifacts
 .DS_Store
