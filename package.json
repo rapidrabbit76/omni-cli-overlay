@@ -1,7 +1,7 @@
 {
-  "name": "omni-cli-overlay",
+  "name": "openai-codex-overlay",
   "version": "2026.03.20",
-  "description": "OCO — Omni CLI Overlay",
+  "description": "OCO — OpenAI Codex Overlay",
   "license": "MIT",
   "main": "dist/main/index.js",
   "scripts": {

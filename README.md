@@ -5,7 +5,7 @@
 <h1 align="center">OCO</h1>
 
 <p align="center">
-  <strong>Omni CLI Overlay</strong> — A floating desktop overlay for <a href="https://github.com/openai/codex">OpenAI Codex CLI</a>
+  <strong>OpenAI Codex Overlay</strong> — A floating desktop overlay for <a href="https://github.com/openai/codex">OpenAI Codex CLI</a>
 </p>
 
 <p align="center">
@@ -107,11 +107,11 @@ brew install --cask oco
 
 ### Download
 
-Grab the latest pre-built binary from the [Releases](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest) page:
+Grab the latest pre-built binary from the [Releases](https://github.com/rapidrabbit76/OpenAI-Codex-Overlay/releases/latest) page:
 
 | Platform | Download |
 |---|---|
-| macOS (Apple Silicon) | [**OCO-arm64.dmg**](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest/download/OCO-arm64.dmg) |
+| macOS (Apple Silicon) | [**OCO-arm64.dmg**](https://github.com/rapidrabbit76/OpenAI-Codex-Overlay/releases/latest/download/OCO-arm64.dmg) |
 
 > **Quick start:** Download the DMG → drag `OCO.app` to Applications → launch → toggle with `Alt+Space`.
 
@@ -125,8 +125,8 @@ Grab the latest pre-built binary from the [Releases](https://github.com/rapidrab
 If you prefer building from source:
 
 ```bash
-git clone https://github.com/rapidrabbit76/omni-cli-overlay.git
-cd omni-cli-overlay
+git clone https://github.com/rapidrabbit76/OpenAI-Codex-Overlay.git
+cd OpenAI-Codex-Overlay
 pnpm install
 pnpm dev
 ```

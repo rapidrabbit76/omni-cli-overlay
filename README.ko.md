@@ -5,7 +5,7 @@
 <h1 align="center">OCO</h1>
 
 <p align="center">
-  <strong>Omni CLI Overlay</strong> — <a href="https://github.com/openai/codex">OpenAI Codex CLI</a>를 위한 플로팅 데스크톱 오버레이
+  <strong>OpenAI Codex Overlay</strong> — <a href="https://github.com/openai/codex">OpenAI Codex CLI</a>를 위한 플로팅 데스크톱 오버레이
 </p>
 
 <p align="center">
@@ -107,11 +107,11 @@ brew install --cask oco
 
 ### 다운로드
 
-[Releases](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest) 페이지에서 최신 빌드를 받으세요:
+[Releases](https://github.com/rapidrabbit76/OpenAI-Codex-Overlay/releases/latest) 페이지에서 최신 빌드를 받으세요:
 
 | 플랫폼 | 다운로드 |
 |---|---|
-| macOS (Apple Silicon) | [**OCO-arm64.dmg**](https://github.com/rapidrabbit76/omni-cli-overlay/releases/latest/download/OCO-arm64.dmg) |
+| macOS (Apple Silicon) | [**OCO-arm64.dmg**](https://github.com/rapidrabbit76/OpenAI-Codex-Overlay/releases/latest/download/OCO-arm64.dmg) |
 
 > **빠른 시작:** DMG 다운로드 → `OCO.app`을 Applications로 드래그 → 실행 → `Alt+Space`으로 토글.
 
@@ -123,8 +123,8 @@ brew install --cask oco
 ### 소스에서 빌드
 
 ```bash
-git clone https://github.com/rapidrabbit76/omni-cli-overlay.git
-cd omni-cli-overlay
+git clone https://github.com/rapidrabbit76/OpenAI-Codex-Overlay.git
+cd OpenAI-Codex-Overlay
 pnpm install
 pnpm dev
 ```
