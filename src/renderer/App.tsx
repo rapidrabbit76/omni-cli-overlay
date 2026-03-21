@@ -473,36 +473,32 @@ export default function App() {
           <div data-oco-ui className="relative" style={{ minHeight: 46, zIndex: 15, marginBottom: 10 }}>
             <div
               data-oco-ui
-              className="circles-out"
-            >
-              <div className="btn-stack">
-                <button
-                  type="button"
-                  className="stack-btn stack-btn-1 glass-surface"
-                  title="Attach file"
-                  onClick={handleAttachFile}
-                  disabled={isRunning}
-                >
-                  <Paperclip size={17} />
-                </button>
-                <button
-                  type="button"
-                  className="stack-btn stack-btn-2 glass-surface"
-                  title="Take screenshot"
-                  onClick={handleScreenshot}
-                  disabled={isRunning}
-                >
-                  <Camera size={17} />
-                </button>
-              </div>
-            </div>
-
-            <div
-              data-oco-ui
               className="glass-surface w-full"
               style={{ minHeight: 50, borderRadius: 25, padding: '0 6px 0 16px', background: colors.inputPillBg }}
             >
               <InputBar />
+            </div>
+
+            <div data-oco-ui className="quick-action-bar">
+              <button
+                type="button"
+                className="quick-action-chip"
+                style={{ background: colors.surfacePrimary, color: colors.textSecondary, border: `1px solid ${colors.containerBorder}` }}
+                onClick={handleAttachFile}
+                disabled={isRunning}
+              >
+                <Paperclip size={14} weight="bold" />
+              </button>
+              <button
+                type="button"
+                className="quick-action-chip"
+                style={{ background: colors.surfacePrimary, color: colors.textSecondary, border: `1px solid ${colors.containerBorder}` }}
+                onClick={handleScreenshot}
+                disabled={isRunning}
+              >
+                <Camera size={14} weight="bold" />
+              </button>
+
             </div>
           </div>
         </div>
