@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import {
@@ -26,7 +26,7 @@ import {
 } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
-import { FLOAT_LAYOUT_EVENT, useFloatTransition } from '../hooks/useFloatTransition'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 export interface SlashCommand {
   command: string
@@ -91,6 +91,7 @@ export function getFilteredCommandsWithExtras(filter: string, extraCommands: Sla
 }
 
 export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorEl, extraCommands = [] }: Props) {
+  const viewportPad = 12
   const listRef = useRef<HTMLDivElement>(null)
   const popoverLayer = usePopoverLayer()
   const filtered = getFilteredCommandsWithExtras(filter, extraCommands)
@@ -105,7 +106,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorEl, ex
 
   const { mounted, visible, measuring } = useFloatTransition(filtered.length > 0 && !!anchorEl && !!popoverLayer)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!anchorEl) {
       setAnchorRect(null)
       return
@@ -114,29 +115,33 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorEl, ex
     updateAnchorRect()
     if (!mounted) return
     window.addEventListener('resize', updateAnchorRect)
-    window.addEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
     return () => {
       window.removeEventListener('resize', updateAnchorRect)
-      window.removeEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
     }
   }, [anchorEl, mounted])
 
   if (!mounted || !anchorRect || !popoverLayer) return null
+
+  const width = Math.min(Math.max(220, anchorRect.width - 24), window.innerWidth - viewportPad * 2)
+  const left = Math.min(
+    Math.max(viewportPad, anchorRect.left + 12),
+    Math.max(viewportPad, window.innerWidth - viewportPad - width),
+  )
 
   return createPortal(
     <motion.div
       data-oco-ui
       data-oco-float
       data-oco-measure-when-hidden={measuring ? 'true' : undefined}
-      initial={{ opacity: 0, y: 4 }}
-      animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
-      exit={{ opacity: 0, y: 4 }}
-      transition={{ duration: 0.12 }}
+      initial={{ opacity: 0 }}
+      animate={visible ? { opacity: 1 } : { opacity: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.08 }}
       style={{
         position: 'fixed',
         bottom: window.innerHeight - anchorRect.top + 4,
-        left: anchorRect.left + 12,
-        right: window.innerWidth - anchorRect.right + 12,
+        left,
+        width,
         pointerEvents: visible ? 'auto' as const : 'none' as const,
         visibility: visible ? 'visible' as const : 'hidden' as const,
       }}
