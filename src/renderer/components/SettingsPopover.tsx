@@ -42,6 +42,8 @@ function RowToggle({
 }
 
 export function SettingsPopover() {
+  const popoverWidth = 264
+  const viewportPad = 8
   const soundEnabled = useThemeStore((s) => s.soundEnabled)
   const setSoundEnabled = useThemeStore((s) => s.setSoundEnabled)
   const themeMode = useThemeStore((s) => s.themeMode)
@@ -62,15 +64,18 @@ export function SettingsPopover() {
     const rect = triggerRef.current.getBoundingClientRect()
     const gap = 6
     const margin = 8
-    const right = window.innerWidth - rect.right
+    const left = Math.min(
+      Math.max(viewportPad, rect.right - popoverWidth),
+      Math.max(viewportPad, window.innerWidth - viewportPad - popoverWidth),
+    )
 
     if (isExpanded) {
       const top = rect.bottom + gap
-      setPos({ top, right, maxHeight: Math.max(120, window.innerHeight - top - margin) })
+      setPos({ top, right: left, maxHeight: Math.max(120, window.innerHeight - top - margin) })
       return
     }
 
-    setPos({ bottom: window.innerHeight - rect.top + gap, right, maxHeight: undefined })
+    setPos({ bottom: window.innerHeight - rect.top + gap, right: left, maxHeight: undefined })
   }, [isExpanded])
 
   useEffect(() => {
@@ -120,17 +125,17 @@ export function SettingsPopover() {
           ref={popoverRef}
           data-oco-ui
           data-oco-float
-          initial={{ opacity: 0, y: isExpanded ? -4 : 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: isExpanded ? -4 : 4 }}
-          transition={{ duration: 0.12 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.08 }}
           className="rounded-xl"
           style={{
             position: 'fixed',
             ...(pos.top != null ? { top: pos.top } : {}),
             ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
-            right: pos.right,
-            width: 264,
+            left: pos.right,
+            width: popoverWidth,
             pointerEvents: 'auto',
             background: colors.popoverBg,
             backdropFilter: 'blur(20px)',

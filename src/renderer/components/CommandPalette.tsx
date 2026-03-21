@@ -49,10 +49,10 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
           data-oco-ui
           data-oco-float
           data-oco-measure-when-hidden={measuring ? 'true' : undefined}
-          initial={{ opacity: 0, y: 8, scale: 0.96 }}
-          animate={visible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 8, scale: 0.96 }}
-          exit={{ opacity: 0, y: 8, scale: 0.96 }}
-          transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
+          initial={{ opacity: 0 }}
+          animate={visible ? { opacity: 1 } : { opacity: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.08, ease: [0.4, 0, 0.2, 1] }}
           style={{
             position: 'fixed',
             bottom: 80,
