@@ -88,8 +88,16 @@ const api: OcoAPI = {
   loadSession: (sessionId, projectPath) => ipcRenderer.invoke(IPC.LOAD_SESSION, { sessionId, projectPath }),
   listModels: () => ipcRenderer.invoke(IPC.LIST_MODELS),
   getRateLimits: () => ipcRenderer.invoke(IPC.GET_RATE_LIMITS),
-  onTokenUsageUpdated: (callback: (info: TokenUsageInfo) => void) => { ipcRenderer.on(IPC.TOKEN_USAGE_UPDATED, (_e, info) => callback(info)); return () => ipcRenderer.removeAllListeners(IPC.TOKEN_USAGE_UPDATED) },
-  onRateLimitsUpdated: (callback: (info: RateLimitInfo) => void) => { ipcRenderer.on(IPC.RATE_LIMITS_UPDATED, (_e, info) => callback(info)); return () => ipcRenderer.removeAllListeners(IPC.RATE_LIMITS_UPDATED) },
+  onTokenUsageUpdated: (callback: (info: TokenUsageInfo) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: TokenUsageInfo) => callback(info)
+    ipcRenderer.on(IPC.TOKEN_USAGE_UPDATED, handler)
+    return () => ipcRenderer.removeListener(IPC.TOKEN_USAGE_UPDATED, handler)
+  },
+  onRateLimitsUpdated: (callback: (info: RateLimitInfo) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: RateLimitInfo) => callback(info)
+    ipcRenderer.on(IPC.RATE_LIMITS_UPDATED, handler)
+    return () => ipcRenderer.removeListener(IPC.RATE_LIMITS_UPDATED, handler)
+  },
   listSkills: () => ipcRenderer.invoke(IPC.LIST_SKILLS),
   getTheme: () => ipcRenderer.invoke(IPC.GET_THEME),
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),

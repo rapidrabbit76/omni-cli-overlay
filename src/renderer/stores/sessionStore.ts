@@ -600,19 +600,22 @@ export const useSessionStore = create<State>((set, get) => ({
               usage: event.usage,
               sessionId: updated.sessionId || event.sessionId,
             }
-            if (updated.sessionId && event.usage?.input_tokens) {
+            if (updated.sessionId && event.usage != null) {
               const sid = updated.sessionId
               const prev = get().tokenUsageByThread[sid]
+              const inputTokens = event.usage.input_tokens ?? 0
+              const outputTokens = event.usage.output_tokens ?? 0
+              const cachedInputTokens = event.usage.cached_input_tokens ?? 0
               set((s) => ({
                 tokenUsageByThread: {
                   ...s.tokenUsageByThread,
                   [sid]: {
                     threadId: sid,
                     turnId: '',
-                    totalTokens: (event.usage.input_tokens || 0) + (event.usage.output_tokens || 0),
-                    inputTokens: event.usage.input_tokens || 0,
-                    outputTokens: event.usage.output_tokens || 0,
-                    cachedInputTokens: event.usage.cached_input_tokens || 0,
+                    totalTokens: inputTokens + outputTokens,
+                    inputTokens,
+                    outputTokens,
+                    cachedInputTokens,
                     reasoningOutputTokens: 0,
                     modelContextWindow: prev?.modelContextWindow ?? null,
                   },
