@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   ArrowsOutSimple,
   Bell,
@@ -191,6 +191,7 @@ export default function SettingsPage() {
   const setSoundEnabled = useThemeStore((s) => s.setSoundEnabled)
   const showReasoningStream = useThemeStore((s) => s.showReasoningStream)
   const setShowReasoningStream = useThemeStore((s) => s.setShowReasoningStream)
+  const availableModels = useSessionStore((s) => s.availableModels)
   const expandedUI = useThemeStore((s) => s.expandedUI)
   const setExpandedUI = useThemeStore((s) => s.setExpandedUI)
   const overlayOpacity = useThemeStore((s) => s.overlayOpacity)
@@ -201,6 +202,10 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
   const [appSettings, setAppSettings] = useState<AppSettings>({ ...DEFAULT_APP_SETTINGS })
+  const availableReasoningLevels = useMemo(() => getReasoningLevelsForModel({
+    availableModels,
+    preferredModel: appSettings.defaultModel,
+  }), [availableModels, appSettings.defaultModel])
 
   useEffect(() => {
     window.oco.getAppSettings().then((raw) => {
@@ -601,7 +606,7 @@ function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowB
                     className="h-7 rounded-md px-2 text-[10px] outline-none"
                     style={{ minWidth: 120, background: colors.surfacePrimary, color: colors.textPrimary, border: `1px solid ${colors.containerBorder}` }}
                   >
-                    {useSessionStore.getState().availableModels.map((m) => (
+                    {availableModels.map((m) => (
                       <option key={m.id} value={m.id}>{m.label}</option>
                     ))}
                   </select>
@@ -618,10 +623,7 @@ function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowB
                     className="h-7 rounded-md px-2 text-[10px] outline-none"
                     style={{ minWidth: 120, background: colors.surfacePrimary, color: colors.textPrimary, border: `1px solid ${colors.containerBorder}` }}
                   >
-                    {getReasoningLevelsForModel({
-                      availableModels: useSessionStore.getState().availableModels,
-                      preferredModel: appSettings.defaultModel,
-                    }).map((r) => (
+                    {availableReasoningLevels.map((r) => (
                       <option key={r.id} value={r.id}>{r.label}</option>
                     ))}
                   </select>
