@@ -32,10 +32,10 @@ jobs:
             version "${{ steps.version.outputs.version }}"
             sha256 "${{ steps.sha.outputs.sha256 }}"
 
-            url "https://github.com/rapidrabbit76/omni-cli-overlay/releases/download/v#{version}/OCO-arm64.dmg"
+            url "https://github.com/rapidrabbit76/OpenAI-Codex-Overlay/releases/download/v#{version}/OCO-arm64.dmg"
             name "OCO"
             desc "Floating desktop overlay for OpenAI Codex CLI"
-            homepage "https://github.com/rapidrabbit76/omni-cli-overlay"
+            homepage "https://github.com/rapidrabbit76/OpenAI-Codex-Overlay"
 
             depends_on macos: ">= :ventura"
 
