@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { DotsThree, Bell, ArrowsOutSimple, Moon, GearSix } from '@phosphor-icons/react'
+import { DotsThree, Bell, ArrowsOutSimple, Moon, GearSix, Brain } from '@phosphor-icons/react'
 import { useThemeStore } from '../theme'
 import { useSessionStore } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
@@ -46,6 +46,8 @@ export function SettingsPopover() {
   const viewportPad = 8
   const soundEnabled = useThemeStore((s) => s.soundEnabled)
   const setSoundEnabled = useThemeStore((s) => s.setSoundEnabled)
+  const showReasoningStream = useThemeStore((s) => s.showReasoningStream)
+  const setShowReasoningStream = useThemeStore((s) => s.setShowReasoningStream)
   const themeMode = useThemeStore((s) => s.themeMode)
   const setThemeMode = useThemeStore((s) => s.setThemeMode)
   const expandedUI = useThemeStore((s) => s.expandedUI)
@@ -169,6 +171,20 @@ export function SettingsPopover() {
                   </div>
                 </div>
                 <RowToggle checked={soundEnabled} onChange={setSoundEnabled} colors={colors} label="Toggle notification sound" />
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: colors.popoverBorder }} />
+
+            <div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Brain size={14} style={{ color: colors.textTertiary }} />
+                  <div className="text-[12px] font-medium" style={{ color: colors.textPrimary }}>
+                    Show thinking
+                  </div>
+                </div>
+                <RowToggle checked={showReasoningStream} onChange={setShowReasoningStream} colors={colors} label="Toggle model thinking stream" />
               </div>
             </div>
 

@@ -189,6 +189,8 @@ export default function SettingsPage() {
   const setThemeMode = useThemeStore((s) => s.setThemeMode)
   const soundEnabled = useThemeStore((s) => s.soundEnabled)
   const setSoundEnabled = useThemeStore((s) => s.setSoundEnabled)
+  const showReasoningStream = useThemeStore((s) => s.showReasoningStream)
+  const setShowReasoningStream = useThemeStore((s) => s.setShowReasoningStream)
   const expandedUI = useThemeStore((s) => s.expandedUI)
   const setExpandedUI = useThemeStore((s) => s.setExpandedUI)
   const overlayOpacity = useThemeStore((s) => s.overlayOpacity)
@@ -738,6 +740,14 @@ function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowB
                     <span className="text-[11px]">Notification Sound</span>
                   </div>
                   <RowToggle checked={soundEnabled} onChange={setSoundEnabled} label="Toggle notification sound" accent={colors.accent} background={colors.surfaceSecondary} border={colors.containerBorder} />
+                </div>
+
+                <div className={rowClassName} style={rowBaseStyle}>
+                  <div className="flex items-center gap-3">
+                    <Brain size={16} style={{ color: colors.textTertiary }} />
+                    <span className="text-[11px]">Show Thinking</span>
+                  </div>
+                  <RowToggle checked={showReasoningStream} onChange={setShowReasoningStream} label="Toggle streamed model thinking" accent={colors.accent} background={colors.surfaceSecondary} border={colors.containerBorder} />
                 </div>
 
                 <div className={rowClassName} style={rowBaseStyle}>

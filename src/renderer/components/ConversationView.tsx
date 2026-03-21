@@ -4,7 +4,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   FileText, PencilSimple, FileArrowUp, Terminal, MagnifyingGlass, Globe,
-  Robot, Question, Wrench, FolderOpen, Copy, Check, CaretRight, CaretDown,
+  Robot, Question, Wrench, FolderOpen, Copy, Check, CaretRight, CaretDown, Brain,
   SpinnerGap, ArrowCounterClockwise, Square,
 } from '@phosphor-icons/react'
 import { useSessionStore } from '../stores/sessionStore'
@@ -24,11 +24,12 @@ type GroupedItem =
   | { kind: 'user'; message: Message }
   | { kind: 'assistant'; message: Message }
   | { kind: 'system'; message: Message }
+  | { kind: 'reasoning'; message: Message }
   | { kind: 'tool-group'; messages: Message[] }
 
 // ─── Helpers ───
 
-function groupMessages(messages: Message[]): GroupedItem[] {
+function groupMessages(messages: Message[], showReasoning: boolean): GroupedItem[] {
   const result: GroupedItem[] = []
   let toolBuf: Message[] = []
 
@@ -46,6 +47,9 @@ function groupMessages(messages: Message[]): GroupedItem[] {
       flushTools()
       if (msg.role === 'user') result.push({ kind: 'user', message: msg })
       else if (msg.role === 'assistant') result.push({ kind: 'assistant', message: msg })
+      else if (msg.role === 'reasoning') {
+        if (showReasoning) result.push({ kind: 'reasoning', message: msg })
+      }
       else result.push({ kind: 'system', message: msg })
     }
   }
@@ -67,6 +71,7 @@ export function ConversationView() {
   const prevTabIdRef = useRef(activeTabId)
   const colors = useColors()
   const expandedUI = useThemeStore((s) => s.expandedUI)
+  const showReasoningStream = useThemeStore((s) => s.showReasoningStream)
 
   const tab = tabs.find((t) => t.id === activeTabId)
 
@@ -106,8 +111,8 @@ export function ConversationView() {
   const hasOlder = startIndex > 0
 
   const grouped = useMemo(
-    () => groupMessages(visibleMessages),
-    [visibleMessages],
+    () => groupMessages(visibleMessages, showReasoningStream),
+    [visibleMessages, showReasoningStream],
   )
 
   const hiddenCount = totalCount - visibleMessages.length
@@ -173,6 +178,8 @@ export function ConversationView() {
                 return <UserMessage key={item.message.id} message={item.message} skipMotion={isHistorical} />
               case 'assistant':
                 return <AssistantMessage key={item.message.id} message={item.message} skipMotion={isHistorical} />
+              case 'reasoning':
+                return <ReasoningMessage key={item.message.id} message={item.message} skipMotion={isHistorical} />
               case 'tool-group':
                 return <ToolGroup key={`tg-${item.messages[0].id}`} tools={item.messages} skipMotion={isHistorical} />
               case 'system':
@@ -416,6 +423,42 @@ function QueuedMessage({ content }: { content: string }) {
       >
         {content}
       </div>
+    </motion.div>
+  )
+}
+
+function ReasoningMessage({ message, skipMotion }: { message: Message; skipMotion?: boolean }) {
+  const colors = useColors()
+  const title = message.reasoningKind === 'summary' ? 'Thinking summary' : 'Thinking'
+
+  const inner = (
+    <div
+      className="px-3 py-2 rounded-xl whitespace-pre-wrap"
+      style={{
+        background: colors.accentLight,
+        border: `1px solid ${colors.accentBorder}`,
+        color: colors.textSecondary,
+      }}
+    >
+      <div className="mb-1 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.08em]" style={{ color: colors.accent }}>
+        <Brain size={12} />
+        <span>{title}</span>
+        {!message.reasoningComplete && <span style={{ color: colors.textTertiary }}>streaming...</span>}
+      </div>
+      <div className="text-[12px] leading-[1.55]">{message.content}</div>
+    </div>
+  )
+
+  if (skipMotion) return <div className="py-1">{inner}</div>
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12 }}
+      className="py-1"
+    >
+      {inner}
     </motion.div>
   )
 }
