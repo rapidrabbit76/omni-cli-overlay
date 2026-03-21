@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Terminal, CaretDown, Check, FolderOpen, Plus, X, Lightning } from '@phosphor-icons/react'
+import { Terminal, CaretDown, Check, FolderOpen, Plus, X } from '@phosphor-icons/react'
 import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
@@ -35,9 +35,10 @@ function ModelPicker() {
   const updatePos = useCallback(() => {
     if (!triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
+    const maxLeft = window.innerWidth - viewportPad - popoverWidth
     setPos({
       bottom: window.innerHeight - rect.top + 6,
-      left: Math.min(rect.left, Math.max(viewportPad, window.innerWidth - viewportPad - popoverWidth)),
+      left: Math.max(viewportPad, Math.min(rect.left, maxLeft)),
     })
   }, [])
 

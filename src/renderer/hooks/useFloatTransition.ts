@@ -39,13 +39,15 @@ export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; vis
       window.addEventListener('resize', onResize)
 
       let frameCount = 0
+      let settleFrames = 0
       let raf = 0
       const tick = () => {
         frameCount++
         // Only start counting settle frames once the resize has
         // actually begun (or enough frames passed that it won't come).
         if (resizeSeen || frameCount >= 2) {
-          if (frameCount >= RESIZE_SETTLE_FRAMES) { reveal(); return }
+          settleFrames++
+          if (settleFrames >= RESIZE_SETTLE_FRAMES) { reveal(); return }
         }
         raf = requestAnimationFrame(tick)
       }
