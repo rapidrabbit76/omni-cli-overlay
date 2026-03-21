@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from 'react'
 const RESIZE_SETTLE_FRAMES = 4
 const RESIZE_SETTLE_MAX_MS = 120
 const EXIT_DURATION_MS = 150
+export const FLOAT_LAYOUT_EVENT = 'oco:float-layout'
 
-export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; visible: boolean } {
+export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; visible: boolean; measuring: boolean } {
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
   const seqRef = useRef(0)
@@ -15,6 +16,12 @@ export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; vis
     if (shouldOpen) {
       setMounted(true)
       setVisible(false)
+
+      let layoutRaf = 0
+      layoutRaf = requestAnimationFrame(() => {
+        if (seq !== seqRef.current) return
+        window.dispatchEvent(new Event(FLOAT_LAYOUT_EVENT))
+      })
 
       let settled = false
       const reveal = () => {
@@ -37,6 +44,7 @@ export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; vis
       const timeout = window.setTimeout(reveal, RESIZE_SETTLE_MAX_MS)
 
       return () => {
+        cancelAnimationFrame(layoutRaf)
         window.removeEventListener('resize', onResize)
         cancelAnimationFrame(raf)
         clearTimeout(timeout)
@@ -51,5 +59,5 @@ export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; vis
     }
   }, [shouldOpen])
 
-  return { mounted, visible }
+  return { mounted, visible, measuring: shouldOpen && mounted && !visible }
 }

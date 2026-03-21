@@ -234,6 +234,21 @@ ipcMain.on(IPC.SET_WINDOW_WIDTH, (_event, width: number) => {
   const dx = Math.round((bounds.width - clamped) / 2)
   mainWindow.setBounds({ x: bounds.x + dx, y: bounds.y, width: clamped, height: bounds.height })
 })
+ipcMain.on(IPC.SET_WINDOW_BOUNDS, (_event, payload: { width: number; height: number }) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const zoom = mainWindow.webContents.getZoomFactor()
+  const bounds = mainWindow.getBounds()
+  const clampedWidth = Math.max(MIN_WIDTH, Math.round(payload.width * zoom))
+  const clampedHeight = Math.max(MIN_HEIGHT, Math.round(payload.height * zoom))
+  const dx = Math.round((bounds.width - clampedWidth) / 2)
+  const dy = bounds.height - clampedHeight
+  mainWindow.setBounds({
+    x: bounds.x + dx,
+    y: bounds.y + dy,
+    width: clampedWidth,
+    height: clampedHeight,
+  })
+})
 ipcMain.handle(IPC.ANIMATE_HEIGHT, () => {})
 ipcMain.on(IPC.HIDE_WINDOW, () => mainWindow?.hide())
 ipcMain.handle(IPC.IS_VISIBLE, () => mainWindow?.isVisible() ?? false)

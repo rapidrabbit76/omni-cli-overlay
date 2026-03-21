@@ -40,7 +40,7 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
 
   const hintText = mode === 'history' ? 'Ctrl+N/P navigate · Enter select · Esc close' : 'Ctrl+N/P navigate · Enter select · Esc close'
 
-  const { mounted, visible } = useFloatTransition(open)
+  const { mounted, visible, measuring } = useFloatTransition(open)
 
   return (
     <AnimatePresence>
@@ -48,6 +48,7 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
         <motion.div
           data-oco-ui
           data-oco-float
+          data-oco-measure-when-hidden={measuring ? 'true' : undefined}
           initial={{ opacity: 0, y: 8, scale: 0.96 }}
           animate={visible ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 8, scale: 0.96 }}
           exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -59,9 +60,10 @@ export function CommandPalette({ open, mode, items, selectedIndex, title, onSele
             width: 220,
             zIndex: 100,
             background: colors.popoverBg,
-            backdropFilter: visible ? 'blur(24px)' : 'none',
-            WebkitBackdropFilter: visible ? 'blur(24px)' : 'none',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
             visibility: visible ? 'visible' as const : 'hidden' as const,
+            pointerEvents: visible ? 'auto' as const : 'none' as const,
             border: `1px solid ${colors.popoverBorder}`,
             borderRadius: 10,
             boxShadow: '0 12px 36px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.15)',
