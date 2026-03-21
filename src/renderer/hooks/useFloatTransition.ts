@@ -30,13 +30,23 @@ export function useFloatTransition(shouldOpen: boolean): { mounted: boolean; vis
         setVisible(true)
       }
 
-      const onResize = () => reveal()
-      window.addEventListener('resize', onResize, { once: true })
+      // Wait for the window resize triggered by FLOAT_LAYOUT_EVENT to
+      // settle before revealing.  We wait until a resize event fires
+      // (meaning Electron has started resizing) and THEN count settle
+      // frames, so we don't reveal during the resize.
+      let resizeSeen = false
+      const onResize = () => { resizeSeen = true }
+      window.addEventListener('resize', onResize)
 
       let frameCount = 0
       let raf = 0
       const tick = () => {
-        if (++frameCount >= RESIZE_SETTLE_FRAMES) { reveal(); return }
+        frameCount++
+        // Only start counting settle frames once the resize has
+        // actually begun (or enough frames passed that it won't come).
+        if (resizeSeen || frameCount >= 2) {
+          if (frameCount >= RESIZE_SETTLE_FRAMES) { reveal(); return }
+        }
         raf = requestAnimationFrame(tick)
       }
       raf = requestAnimationFrame(tick)

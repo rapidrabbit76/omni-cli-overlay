@@ -23,22 +23,29 @@ function measureAllUI(): { width: number; height: number } {
   const els = document.querySelectorAll('[data-oco-ui]')
   if (els.length === 0) return { width: 400, height: 200 }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  // Track width bounds separately: non-interactive floats (hover tooltips
+  // with pointer-events:none) must NOT widen the window, but real interactive
+  // popovers should.
   let wMinX = Infinity, wMaxX = -Infinity
   els.forEach((el) => {
     const element = el as HTMLElement
     const isFloat = element.hasAttribute('data-oco-float')
     const measureWhenHidden = element.hasAttribute('data-oco-measure-when-hidden')
-    if (window.getComputedStyle(element).visibility === 'hidden' && !measureWhenHidden) return
+    const style = window.getComputedStyle(element)
+    if (style.visibility === 'hidden' && !measureWhenHidden) return
     const r = el.getBoundingClientRect()
     if (r.width === 0 && r.height === 0) return
     minY = Math.min(minY, r.top)
     maxY = Math.max(maxY, r.bottom)
-    if (!isFloat) {
+    minX = Math.min(minX, r.left)
+    maxX = Math.max(maxX, r.right)
+    // Include in width measurement if it's a non-float element, OR an
+    // interactive float (pointer-events !== 'none'), OR explicitly marked
+    // for measurement during the hidden-measuring phase.
+    if (!isFloat || measureWhenHidden || style.pointerEvents !== 'none') {
       wMinX = Math.min(wMinX, r.left)
       wMaxX = Math.max(wMaxX, r.right)
     }
-    minX = Math.min(minX, r.left)
-    maxX = Math.max(maxX, r.right)
   })
   if (!isFinite(minX)) return { width: 400, height: 200 }
   const finalMinX = isFinite(wMinX) ? wMinX : minX
@@ -59,6 +66,7 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     let prevW = 0
     let prevH = 0
     let shrinkTimer = 0
+    let floatBoundsFrozen = false
 
     const applySize = (width: number, height: number) => {
       prevW = width
@@ -66,18 +74,33 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
       window.oco.setWindowBounds(width, height)
     }
 
-    const sync = () => {
+    const runSync = (force = false) => {
       cancelAnimationFrame(rafId)
       rafId = requestAnimationFrame(() => {
         const { width, height } = measureAllUI()
-        if (width === prevW && height === prevH) return
         const hasFloats = !!document.querySelector('[data-oco-float]')
-        const isGrowing = height >= prevH
+        if (!hasFloats) floatBoundsFrozen = false
+        if (hasFloats && floatBoundsFrozen && !force) return
+        // Deadband: ignore sub-pixel changes while floats are visible.
+        // Transform-based entrance animations (y: 4 → 0) shift
+        // getBoundingClientRect() by a few px per frame, causing
+        // setWindowBounds() thrash without meaningful layout change.
+        const FLOAT_DEADBAND = 4
+        const dw = Math.abs(width - prevW)
+        const dh = Math.abs(height - prevH)
+        if (hasFloats && dw <= FLOAT_DEADBAND && dh <= FLOAT_DEADBAND) {
+          if (force) floatBoundsFrozen = true
+          return
+        }
+        if (!hasFloats && width === prevW && height === prevH) return
+        const isGrowing = width > prevW || height > prevH
         if (isGrowing) {
           clearTimeout(shrinkTimer)
           applySize(width, height)
+          if (hasFloats) floatBoundsFrozen = true
         } else if (hasFloats) {
           clearTimeout(shrinkTimer)
+          if (force) floatBoundsFrozen = true
         } else {
           clearTimeout(shrinkTimer)
           shrinkTimer = window.setTimeout(() => applySize(width, height), SHRINK_DELAY_MS)
@@ -85,13 +108,15 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
       })
     }
 
+    const sync = () => runSync(false)
+
     const observer = new ResizeObserver(sync)
     observer.observe(el)
 
     const mutObserver = new MutationObserver(sync)
     mutObserver.observe(document.body, { childList: true, subtree: true })
 
-    const onFloatLayout = () => sync()
+    const onFloatLayout = () => runSync(true)
     window.addEventListener(FLOAT_LAYOUT_EVENT, onFloatLayout)
 
     const zoomMql = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
