@@ -29,9 +29,10 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorEl }: Props) {
 
   useEffect(() => {
     if (!listRef.current) return
+    if (selectedIndex >= items.length) return
     const item = listRef.current.children[selectedIndex] as HTMLElement | undefined
     item?.scrollIntoView({ block: 'nearest' })
-  }, [selectedIndex])
+  }, [selectedIndex, items.length])
 
   const { mounted, visible, measuring } = useFloatTransition(items.length > 0 && !!anchorEl && !!popoverLayer)
 
@@ -85,9 +86,10 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorEl }: Props) {
       >
         {items.map((skill, i) => {
           const isSelected = i === selectedIndex
+          const skillKey = `${skill.scope ?? 'user'}:${skill.path ?? skill.name}:${skill.name}`
           return (
             <button
-              key={skill.name}
+              key={skillKey}
               type="button"
               onClick={() => onSelect(skill)}
               className="w-full flex items-center gap-2.5 px-3 py-1.5 text-left transition-colors"
