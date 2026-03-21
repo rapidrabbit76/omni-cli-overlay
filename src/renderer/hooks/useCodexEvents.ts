@@ -2,23 +2,31 @@ import { useEffect, useRef } from 'react'
 import { useSessionStore } from '../stores/sessionStore'
 import type { NormalizedEvent } from '../../shared/types'
 
+type ReasoningChunkEvent = Extract<NormalizedEvent, { type: 'reasoning_chunk' }>
+
 export function useCodexEvents() {
   const handleNormalizedEvent = useSessionStore((s) => s.handleNormalizedEvent)
   const handleStatusChange = useSessionStore((s) => s.handleStatusChange)
   const handleError = useSessionStore((s) => s.handleError)
 
   const chunkBufferRef = useRef<Map<string, string>>(new Map())
+  const reasoningBufferRef = useRef<Array<{ tabId: string; event: ReasoningChunkEvent }>>([])
   const rafIdRef = useRef<number>(0)
 
   useEffect(() => {
     const flushChunks = () => {
       rafIdRef.current = 0
       const buffer = chunkBufferRef.current
-      if (buffer.size === 0) return
+      const reasoningBuffer = reasoningBufferRef.current
+      if (buffer.size === 0 && reasoningBuffer.length === 0) return
       for (const [tabId, text] of buffer) {
         handleNormalizedEvent(tabId, { type: 'text_chunk', text } as NormalizedEvent)
       }
       buffer.clear()
+      for (const { tabId, event } of reasoningBuffer) {
+        handleNormalizedEvent(tabId, event)
+      }
+      reasoningBufferRef.current = []
     }
 
     const unsubEvent = window.oco.onEvent((tabId, event) => {
@@ -29,8 +37,13 @@ export function useCodexEvents() {
         if (!rafIdRef.current) {
           rafIdRef.current = requestAnimationFrame(flushChunks)
         }
+      } else if (event.type === 'reasoning_chunk') {
+        reasoningBufferRef.current.push({ tabId, event })
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(flushChunks)
+        }
       } else {
-        if (event.type === 'task_complete' && rafIdRef.current) {
+        if ((event.type === 'task_complete' || event.type === 'reasoning_complete') && rafIdRef.current) {
           cancelAnimationFrame(rafIdRef.current)
           flushChunks()
         }
@@ -52,6 +65,7 @@ export function useCodexEvents() {
       unsubError()
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
       chunkBufferRef.current.clear()
+      reasoningBufferRef.current = []
     }
   }, [handleNormalizedEvent, handleStatusChange, handleError])
 }
