@@ -8,6 +8,8 @@ import type {
   Attachment,
   ShortcutSettings,
   ModelInfo,
+  RateLimitInfo,
+  TokenUsageInfo,
 } from '../../shared/types'
 import { useThemeStore } from '../theme'
 import notificationSrc from '../../../resources/notification.mp3'
@@ -67,8 +69,13 @@ interface State {
   shortcutSettingsSaving: boolean
   shortcutSettingsError: string | null
   availableModels: ModelInfo[]
+  rateLimits: RateLimitInfo | null
+  tokenUsageByThread: Record<string, TokenUsageInfo>
   initStaticInfo: () => Promise<void>
   fetchModels: () => Promise<void>
+  fetchRateLimits: () => Promise<void>
+  updateTokenUsage: (info: TokenUsageInfo) => void
+  updateRateLimits: (info: RateLimitInfo) => void
   loadShortcutSettings: () => Promise<void>
   saveShortcutSettings: (settings: ShortcutSettings) => Promise<boolean>
   setPreferredModel: (model: string | null) => void
@@ -179,6 +186,13 @@ export function initSessionDefaults(): void {
     window.oco.onAppSettingsChanged(applyAppSettings)
   }
   useSessionStore.getState().fetchModels()
+  useSessionStore.getState().fetchRateLimits()
+  if (window.oco.onTokenUsageUpdated) {
+    window.oco.onTokenUsageUpdated((info) => useSessionStore.getState().updateTokenUsage(info))
+  }
+  if (window.oco.onRateLimitsUpdated) {
+    window.oco.onRateLimitsUpdated((info) => useSessionStore.getState().updateRateLimits(info))
+  }
 }
 
 export const useSessionStore = create<State>((set, get) => ({
@@ -196,6 +210,20 @@ export const useSessionStore = create<State>((set, get) => ({
   shortcutSettingsSaving: false,
   shortcutSettingsError: null,
   availableModels: FALLBACK_MODELS,
+  rateLimits: null,
+  tokenUsageByThread: {},
+
+  fetchRateLimits: async () => {
+    try {
+      const info = await window.oco.getRateLimits()
+      if (info) set({ rateLimits: info })
+    } catch {}
+  },
+
+  updateTokenUsage: (info: TokenUsageInfo) => set((s) => ({
+    tokenUsageByThread: { ...s.tokenUsageByThread, [info.threadId]: info },
+  })),
+  updateRateLimits: (info: RateLimitInfo) => set({ rateLimits: info }),
 
   fetchModels: async () => {
     try {
@@ -483,6 +511,25 @@ export const useSessionStore = create<State>((set, get) => ({
               numTurns: event.numTurns,
               usage: event.usage,
               sessionId: updated.sessionId || event.sessionId,
+            }
+            if (updated.sessionId && event.usage?.input_tokens) {
+              const sid = updated.sessionId
+              const prev = get().tokenUsageByThread[sid]
+              set((s) => ({
+                tokenUsageByThread: {
+                  ...s.tokenUsageByThread,
+                  [sid]: {
+                    threadId: sid,
+                    turnId: '',
+                    totalTokens: (event.usage.input_tokens || 0) + (event.usage.output_tokens || 0),
+                    inputTokens: event.usage.input_tokens || 0,
+                    outputTokens: event.usage.output_tokens || 0,
+                    cachedInputTokens: event.usage.cached_input_tokens || 0,
+                    reasoningOutputTokens: 0,
+                    modelContextWindow: prev?.modelContextWindow ?? null,
+                  },
+                },
+              }))
             }
             if (tabId !== s.activeTabId || !s.isExpanded) updated.hasUnread = true
             playNotificationIfHidden()

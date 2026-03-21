@@ -11,6 +11,8 @@ import type {
   ShortcutSettings,
   ShortcutSettingsUpdateResult,
   ModelInfo,
+  RateLimitInfo,
+  TokenUsageInfo,
 } from '../shared/types'
 
 export interface OcoAPI {
@@ -35,6 +37,9 @@ export interface OcoAPI {
   listSessions(projectPath?: string): Promise<SessionMeta[]>
   loadSession(sessionId: string, projectPath?: string): Promise<SessionLoadMessage[]>
   listModels(): Promise<ModelInfo[]>
+  getRateLimits(): Promise<RateLimitInfo | null>
+  onTokenUsageUpdated(callback: (info: TokenUsageInfo) => void): () => void
+  onRateLimitsUpdated(callback: (info: RateLimitInfo) => void): () => void
   listSkills(): Promise<Array<{ name: string; description: string; scope?: string; enabled?: boolean; path?: string }>>
   getTheme(): Promise<{ isDark: boolean }>
   onThemeChange(callback: (isDark: boolean) => void): () => void
@@ -81,6 +86,9 @@ const api: OcoAPI = {
   listSessions: (projectPath) => ipcRenderer.invoke(IPC.LIST_SESSIONS, projectPath),
   loadSession: (sessionId, projectPath) => ipcRenderer.invoke(IPC.LOAD_SESSION, { sessionId, projectPath }),
   listModels: () => ipcRenderer.invoke(IPC.LIST_MODELS),
+  getRateLimits: () => ipcRenderer.invoke(IPC.GET_RATE_LIMITS),
+  onTokenUsageUpdated: (callback: (info: TokenUsageInfo) => void) => { ipcRenderer.on(IPC.TOKEN_USAGE_UPDATED, (_e, info) => callback(info)); return () => ipcRenderer.removeAllListeners(IPC.TOKEN_USAGE_UPDATED) },
+  onRateLimitsUpdated: (callback: (info: RateLimitInfo) => void) => { ipcRenderer.on(IPC.RATE_LIMITS_UPDATED, (_e, info) => callback(info)); return () => ipcRenderer.removeAllListeners(IPC.RATE_LIMITS_UPDATED) },
   listSkills: () => ipcRenderer.invoke(IPC.LIST_SKILLS),
   getTheme: () => ipcRenderer.invoke(IPC.GET_THEME),
   openSettings: () => ipcRenderer.send(IPC.OPEN_SETTINGS),

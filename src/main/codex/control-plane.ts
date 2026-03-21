@@ -11,6 +11,7 @@ import type { SkillsListResponse } from '../../shared/codex-protocol/v2/SkillsLi
 import type { SkillMetadata } from '../../shared/codex-protocol/v2/SkillMetadata'
 import type { ModelListResponse } from '../../shared/codex-protocol/v2/ModelListResponse'
 import type { Model } from '../../shared/codex-protocol/v2/Model'
+import type { GetAccountRateLimitsResponse } from '../../shared/codex-protocol/v2/GetAccountRateLimitsResponse'
 
 const MAX_QUEUE_DEPTH = 32
 
@@ -222,6 +223,11 @@ export class ControlPlane extends EventEmitter {
     }
   }
 
+  async getRateLimits(): Promise<GetAccountRateLimitsResponse> {
+    await this.initialize()
+    return this.wsTransport.request<GetAccountRateLimitsResponse>('account/rateLimits/read', {})
+  }
+
   async listModels(): Promise<Model[]> {
     await this.initialize()
     const result = await this.wsTransport.request<ModelListResponse>('model/list', {})
@@ -319,6 +325,15 @@ export class ControlPlane extends EventEmitter {
   }
 
   private handleNotification(method: string, params: unknown): void {
+    if (method === 'thread/tokenUsage/updated') {
+      this.emit('tokenUsageUpdated', params)
+      return
+    }
+    if (method === 'account/rateLimits/updated') {
+      this.emit('rateLimitsUpdated', params)
+      return
+    }
+
     const threadId = this.extractThreadId(method, params)
     const tabId = threadId ? this.findTabByThreadId(threadId) : this.findAnyRunningTab()
     if (!tabId) return
