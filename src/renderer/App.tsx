@@ -66,6 +66,7 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     let prevW = 0
     let prevH = 0
     let shrinkTimer = 0
+    let mutDebounceTimer = 0
     let floatBoundsFrozen = false
 
     const applySize = (width: number, height: number) => {
@@ -77,10 +78,10 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     const runSync = (force = false) => {
       cancelAnimationFrame(rafId)
       rafId = requestAnimationFrame(() => {
-        const { width, height } = measureAllUI()
         const hasFloats = !!document.querySelector('[data-oco-float]')
         if (!hasFloats) floatBoundsFrozen = false
         if (hasFloats && floatBoundsFrozen && !force) return
+        const { width, height } = measureAllUI()
         // Deadband: ignore sub-pixel changes while floats are visible.
         // Transform-based entrance animations (y: 4 → 0) shift
         // getBoundingClientRect() by a few px per frame, causing
@@ -113,7 +114,19 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     const observer = new ResizeObserver(sync)
     observer.observe(el)
 
-    const mutObserver = new MutationObserver(sync)
+    const mutObserver = new MutationObserver((mutations) => {
+      const hasFloatMutation = mutations.some((mutation) => {
+        const added = Array.from(mutation.addedNodes)
+        const removed = Array.from(mutation.removedNodes)
+        return [...added, ...removed].some((node) => {
+          if (!(node instanceof HTMLElement)) return false
+          return node.matches('[data-oco-float]') || !!node.querySelector('[data-oco-float]')
+        })
+      })
+      if (!hasFloatMutation) return
+      clearTimeout(mutDebounceTimer)
+      mutDebounceTimer = window.setTimeout(() => runSync(true), 60)
+    })
     mutObserver.observe(document.body, { childList: true, subtree: true })
 
     const onFloatLayout = () => runSync(true)
@@ -128,6 +141,7 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
       window.removeEventListener(FLOAT_LAYOUT_EVENT, onFloatLayout)
       zoomMql.removeEventListener('change', sync)
       cancelAnimationFrame(rafId)
+      clearTimeout(mutDebounceTimer)
       clearTimeout(shrinkTimer)
     }
   }, [ref])

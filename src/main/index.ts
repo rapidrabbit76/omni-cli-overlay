@@ -224,7 +224,7 @@ ipcMain.on(IPC.RESIZE_HEIGHT, (_event, height: number) => {
   const bounds = mainWindow.getBounds()
   const clamped = Math.max(MIN_HEIGHT, Math.round(height * zoom))
   const dy = bounds.height - clamped
-  mainWindow.setBounds({ x: bounds.x, y: bounds.y + dy, width: bounds.width, height: clamped })
+  mainWindow.setBounds({ x: bounds.x, y: bounds.y + dy, width: bounds.width, height: clamped }, false)
 })
 ipcMain.on(IPC.SET_WINDOW_WIDTH, (_event, width: number) => {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -232,7 +232,7 @@ ipcMain.on(IPC.SET_WINDOW_WIDTH, (_event, width: number) => {
   const bounds = mainWindow.getBounds()
   const clamped = Math.max(MIN_WIDTH, Math.round(width * zoom))
   const dx = Math.round((bounds.width - clamped) / 2)
-  mainWindow.setBounds({ x: bounds.x + dx, y: bounds.y, width: clamped, height: bounds.height })
+  mainWindow.setBounds({ x: bounds.x + dx, y: bounds.y, width: clamped, height: bounds.height }, false)
 })
 ipcMain.on(IPC.SET_WINDOW_BOUNDS, (_event, payload: { width: number; height: number }) => {
   if (!mainWindow || mainWindow.isDestroyed()) return
@@ -240,14 +240,14 @@ ipcMain.on(IPC.SET_WINDOW_BOUNDS, (_event, payload: { width: number; height: num
   const bounds = mainWindow.getBounds()
   const clampedWidth = Math.max(MIN_WIDTH, Math.round(payload.width * zoom))
   const clampedHeight = Math.max(MIN_HEIGHT, Math.round(payload.height * zoom))
-  const dx = bounds.width - clampedWidth
+  const dx = Math.round((bounds.width - clampedWidth) / 2)
   const dy = bounds.height - clampedHeight
   mainWindow.setBounds({
     x: bounds.x + dx,
     y: bounds.y + dy,
     width: clampedWidth,
     height: clampedHeight,
-  })
+  }, false)
 })
 ipcMain.handle(IPC.ANIMATE_HEIGHT, () => {})
 ipcMain.on(IPC.HIDE_WINDOW, () => mainWindow?.hide())
