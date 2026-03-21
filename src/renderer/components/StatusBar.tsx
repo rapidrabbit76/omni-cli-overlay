@@ -5,11 +5,13 @@ import { Terminal, CaretDown, Check, FolderOpen, Plus, X, Lightning } from '@pho
 import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
-import { FLOAT_LAYOUT_EVENT, useFloatTransition } from '../hooks/useFloatTransition'
+import { useFloatTransition } from '../hooks/useFloatTransition'
 
 /* ─── Model Picker (inline — tightly coupled to StatusBar) ─── */
 
 function ModelPicker() {
+  const popoverWidth = 220
+  const viewportPad = 8
   const preferredModel = useSessionStore((s) => s.preferredModel)
   const setPreferredModel = useSessionStore((s) => s.setPreferredModel)
   const preferredReasoning = useSessionStore((s) => s.preferredReasoning)
@@ -35,7 +37,7 @@ function ModelPicker() {
     const rect = triggerRef.current.getBoundingClientRect()
     setPos({
       bottom: window.innerHeight - rect.top + 6,
-      left: rect.left,
+      left: Math.min(rect.left, Math.max(viewportPad, window.innerWidth - viewportPad - popoverWidth)),
     })
   }, [])
 
@@ -55,10 +57,8 @@ function ModelPicker() {
     if (!open) return
     const update = () => updatePos()
     window.addEventListener('resize', update)
-    window.addEventListener(FLOAT_LAYOUT_EVENT, update)
     return () => {
       window.removeEventListener('resize', update)
-      window.removeEventListener(FLOAT_LAYOUT_EVENT, update)
     }
   }, [open, updatePos])
 
@@ -112,16 +112,16 @@ function ModelPicker() {
           data-oco-ui
           data-oco-float
           data-oco-measure-when-hidden={floatMeasuring ? 'true' : undefined}
-          initial={{ opacity: 0, y: 4 }}
-          animate={floatVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
-          exit={{ opacity: 0, y: 4 }}
-          transition={{ duration: 0.12 }}
+          initial={{ opacity: 0 }}
+          animate={floatVisible ? { opacity: 1 } : { opacity: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.08 }}
           className="rounded-xl"
           style={{
             position: 'fixed',
             bottom: pos.bottom,
             left: pos.left,
-            width: 220,
+            width: popoverWidth,
             pointerEvents: floatVisible ? 'auto' as const : 'none' as const,
             background: colors.popoverBg,
             backdropFilter: 'blur(20px)',
