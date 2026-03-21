@@ -240,7 +240,7 @@ ipcMain.on(IPC.SET_WINDOW_BOUNDS, (_event, payload: { width: number; height: num
   const bounds = mainWindow.getBounds()
   const clampedWidth = Math.max(MIN_WIDTH, Math.round(payload.width * zoom))
   const clampedHeight = Math.max(MIN_HEIGHT, Math.round(payload.height * zoom))
-  const dx = Math.round((bounds.width - clampedWidth) / 2)
+  const dx = bounds.width - clampedWidth
   const dy = bounds.height - clampedHeight
   mainWindow.setBounds({
     x: bounds.x + dx,
