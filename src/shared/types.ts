@@ -38,11 +38,15 @@ export interface TabState {
 
 export interface Message {
   id: string
-  role: 'user' | 'assistant' | 'tool' | 'system'
+  role: 'user' | 'assistant' | 'tool' | 'system' | 'reasoning'
   content: string
   toolName?: string
   toolInput?: string
   toolStatus?: 'running' | 'completed' | 'error'
+  reasoningItemId?: string
+  reasoningKind?: 'summary' | 'content'
+  reasoningIndex?: number
+  reasoningComplete?: boolean
   timestamp: number
 }
 
@@ -57,6 +61,9 @@ export interface RunResult {
 export type NormalizedEvent =
   | { type: 'session_init'; sessionId: string; tools: string[]; model: string; version: string; isWarmup?: boolean }
   | { type: 'text_chunk'; text: string }
+  | { type: 'reasoning_chunk'; itemId: string; reasoningKind: 'summary' | 'content'; index: number; text: string }
+  | { type: 'reasoning_snapshot'; itemId: string; summary: string[]; content: string[] }
+  | { type: 'reasoning_complete'; itemId: string }
   | { type: 'tool_call'; toolName: string; toolId: string; index: number; input?: string }
   | { type: 'tool_call_update'; toolId: string; partialInput: string }
   | { type: 'tool_call_complete'; index: number; toolId?: string; success?: boolean }
@@ -70,6 +77,7 @@ export interface RunOptions {
   sessionId?: string
   model?: string
   reasoningEffort?: string
+  reasoningSummary?: 'auto' | 'concise' | 'detailed' | 'none'
   autoApprove?: boolean
   yoloMode?: boolean
   addDirs?: string[]

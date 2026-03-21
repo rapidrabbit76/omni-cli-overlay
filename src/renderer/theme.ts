@@ -290,6 +290,7 @@ interface ThemeState {
   isDark: boolean
   themeMode: ThemeMode
   soundEnabled: boolean
+  showReasoningStream: boolean
   expandedUI: boolean
   overlayOpacity: number
   fontFamily: string
@@ -298,6 +299,7 @@ interface ThemeState {
   setIsDark: (isDark: boolean) => void
   setThemeMode: (mode: ThemeMode) => void
   setSoundEnabled: (enabled: boolean) => void
+  setShowReasoningStream: (enabled: boolean) => void
   setExpandedUI: (expanded: boolean) => void
   setOverlayOpacity: (opacity: number) => void
   setFontFamily: (fontFamily: string) => void
@@ -324,10 +326,11 @@ function applyTheme(isDark: boolean): void {
   syncTokensToCss(isDark ? darkColors : lightColors)
 }
 
-function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number } {
+function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMode; soundEnabled: boolean; showReasoningStream: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number } {
   return {
     themeMode: ['system', 'light', 'dark'].includes(raw.themeMode as string) ? raw.themeMode as ThemeMode : 'dark',
     soundEnabled: typeof raw.soundEnabled === 'boolean' ? raw.soundEnabled : true,
+    showReasoningStream: typeof raw.showReasoningStream === 'boolean' ? raw.showReasoningStream : false,
     expandedUI: typeof raw.expandedUI === 'boolean' ? raw.expandedUI : false,
     overlayOpacity: typeof raw.overlayOpacity === 'number' ? raw.overlayOpacity : 1,
     fontFamily: typeof raw.fontFamily === 'string' ? raw.fontFamily : DEFAULT_FONT_FAMILY,
@@ -335,17 +338,17 @@ function parseThemeSettings(raw: Record<string, unknown>): { themeMode: ThemeMod
   }
 }
 
-function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number }): void {
+function saveSettings(s: { themeMode: ThemeMode; soundEnabled: boolean; showReasoningStream: boolean; expandedUI: boolean; overlayOpacity: number; fontFamily: string; fontSize: number }): void {
   if (!window.oco?.getAppSettings) return
   window.oco.getAppSettings().then((current) => {
     window.oco.setAppSettings({ ...current, ...s })
   }).catch(() => {})
 }
 
-const saved = { themeMode: 'dark' as ThemeMode, soundEnabled: true, expandedUI: false, overlayOpacity: 1, fontFamily: DEFAULT_FONT_FAMILY, fontSize: DEFAULT_FONT_SIZE }
+const saved = { themeMode: 'dark' as ThemeMode, soundEnabled: true, showReasoningStream: false, expandedUI: false, overlayOpacity: 1, fontFamily: DEFAULT_FONT_FAMILY, fontSize: DEFAULT_FONT_SIZE }
 
 function currentSavePayload(g: () => ThemeState) {
-  return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity, fontFamily: g().fontFamily, fontSize: g().fontSize }
+  return { themeMode: g().themeMode, soundEnabled: g().soundEnabled, showReasoningStream: g().showReasoningStream, expandedUI: g().expandedUI, overlayOpacity: g().overlayOpacity, fontFamily: g().fontFamily, fontSize: g().fontSize }
 }
 
 function applyFont(fontFamily: string, fontSize: number): void {
@@ -358,6 +361,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   isDark: saved.themeMode === 'dark' ? true : saved.themeMode === 'light' ? false : true,
   themeMode: saved.themeMode,
   soundEnabled: saved.soundEnabled,
+  showReasoningStream: saved.showReasoningStream,
   expandedUI: saved.expandedUI,
   overlayOpacity: saved.overlayOpacity,
   fontFamily: saved.fontFamily,
@@ -376,6 +380,10 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   setSoundEnabled: (enabled) => {
     set({ soundEnabled: enabled })
     saveSettings({ ...currentSavePayload(get), soundEnabled: enabled })
+  },
+  setShowReasoningStream: (enabled) => {
+    set({ showReasoningStream: enabled })
+    saveSettings({ ...currentSavePayload(get), showReasoningStream: enabled })
   },
   setExpandedUI: (expanded) => {
     set({ expandedUI: expanded })
@@ -417,6 +425,7 @@ if (typeof window !== 'undefined' && window.oco?.onAppSettingsChanged) {
       themeMode: next.themeMode,
       isDark: nextIsDark,
       soundEnabled: next.soundEnabled,
+      showReasoningStream: next.showReasoningStream,
       expandedUI: next.expandedUI,
       overlayOpacity: next.overlayOpacity,
       fontFamily: next.fontFamily,
@@ -437,6 +446,7 @@ export function initSettingsFromFile(): void {
       themeMode: next.themeMode,
       isDark: nextIsDark,
       soundEnabled: next.soundEnabled,
+      showReasoningStream: next.showReasoningStream,
       expandedUI: next.expandedUI,
       overlayOpacity: next.overlayOpacity,
       fontFamily: next.fontFamily,
