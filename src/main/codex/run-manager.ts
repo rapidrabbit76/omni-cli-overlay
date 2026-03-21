@@ -17,6 +17,13 @@ export class RunManager {
 
   constructor(private transport: WsTransport) {}
 
+  private buildReasoningConfig(options: RunOptions): Record<string, unknown> | undefined {
+    const config: Record<string, unknown> = {}
+    if (options.reasoningEffort) config.model_reasoning_effort = options.reasoningEffort
+    if (options.reasoningSummary) config.model_reasoning_summary = options.reasoningSummary
+    return Object.keys(config).length > 0 ? config : undefined
+  }
+
   async startThread(options: RunOptions): Promise<string> {
     const approvalPolicy = options.autoApprove ? 'on-request' : 'unless-allow-listed'
     const sandbox = options.yoloMode ? 'danger-full-access' : 'workspace-write'
@@ -27,9 +34,7 @@ export class RunManager {
       sandbox,
       experimentalRawEvents: false,
       persistExtendedHistory: false,
-      config: options.reasoningEffort
-        ? { model_reasoning_effort: options.reasoningEffort }
-        : undefined,
+      config: this.buildReasoningConfig(options),
     })
     this.loadedThreadIds.add(result.thread.id)
     return result.thread.id
@@ -45,9 +50,7 @@ export class RunManager {
       approvalPolicy,
       sandbox,
       persistExtendedHistory: false,
-      config: options.reasoningEffort
-        ? { model_reasoning_effort: options.reasoningEffort }
-        : undefined,
+      config: this.buildReasoningConfig(options),
     })
     this.loadedThreadIds.add(result.thread.id)
     return result.thread.id
@@ -57,7 +60,7 @@ export class RunManager {
     return this.loadedThreadIds.has(threadId)
   }
 
-  async startTurn(threadId: string, prompt: string, images?: string[]): Promise<string> {
+  async startTurn(threadId: string, prompt: string, options?: Pick<RunOptions, 'reasoningSummary'>, images?: string[]): Promise<string> {
     const input: UserInput[] = [{ type: 'text', text: prompt, text_elements: [] }]
     if (images) {
       for (const imagePath of images) {
@@ -68,6 +71,7 @@ export class RunManager {
     const result = await this.transport.request<TurnStartResponse>('turn/start', {
       threadId,
       input,
+      summary: options?.reasoningSummary,
     })
     return result.turn.id
   }

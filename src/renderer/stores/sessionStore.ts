@@ -169,6 +169,81 @@ function makeLocalTab(): TabState {
 const initialTab = makeLocalTab()
 const cachedShortcutSettings = readShortcutSettingsCache()
 
+function upsertReasoningMessage(messages: Message[], event: Extract<NormalizedEvent, { type: 'reasoning_chunk' }>): Message[] {
+  const next = [...messages]
+  const existingIndex = next.findIndex((message) => (
+    message.role === 'reasoning'
+    && message.reasoningItemId === event.itemId
+    && message.reasoningKind === event.reasoningKind
+  ))
+
+  if (existingIndex >= 0) {
+    const current = next[existingIndex]
+    const separator = current.reasoningIndex != null && current.reasoningIndex !== event.index ? '\n\n' : ''
+    next[existingIndex] = {
+      ...current,
+      content: `${current.content}${separator}${event.text}`,
+      reasoningIndex: event.index,
+      reasoningComplete: false,
+    }
+    return next
+  }
+
+  next.push({
+    id: `reasoning-${event.reasoningKind}-${event.itemId}`,
+    role: 'reasoning',
+    content: event.text,
+    reasoningItemId: event.itemId,
+    reasoningKind: event.reasoningKind,
+    reasoningIndex: event.index,
+    reasoningComplete: false,
+    timestamp: Date.now(),
+  })
+  return next
+}
+
+function completeReasoningMessages(messages: Message[], itemId: string): Message[] {
+  let changed = false
+  const next = messages.map((message) => {
+    if (message.role !== 'reasoning' || message.reasoningItemId !== itemId || message.reasoningComplete) return message
+    changed = true
+    return { ...message, reasoningComplete: true }
+  })
+  return changed ? next : messages
+}
+
+function applyReasoningSnapshot(messages: Message[], event: Extract<NormalizedEvent, { type: 'reasoning_snapshot' }>): Message[] {
+  const next = messages.filter((message) => !(message.role === 'reasoning' && message.reasoningItemId === event.itemId))
+
+  if (event.summary.length > 0) {
+    next.push({
+      id: `reasoning-summary-${event.itemId}`,
+      role: 'reasoning',
+      content: event.summary.join('\n\n'),
+      reasoningItemId: event.itemId,
+      reasoningKind: 'summary',
+      reasoningIndex: event.summary.length - 1,
+      reasoningComplete: false,
+      timestamp: Date.now(),
+    })
+  }
+
+  if (event.content.length > 0) {
+    next.push({
+      id: `reasoning-content-${event.itemId}`,
+      role: 'reasoning',
+      content: event.content.join('\n\n'),
+      reasoningItemId: event.itemId,
+      reasoningKind: 'content',
+      reasoningIndex: event.content.length - 1,
+      reasoningComplete: false,
+      timestamp: Date.now(),
+    })
+  }
+
+  return next
+}
+
 function applyAppSettings(raw: Record<string, unknown>): void {
   const model = typeof raw.defaultModel === 'string' ? raw.defaultModel : null
   const reasoning = typeof raw.defaultReasoning === 'string' ? raw.defaultReasoning : null
@@ -438,12 +513,14 @@ export const useSessionStore = create<State>((set, get) => ({
     }))
 
     const { preferredModel, preferredReasoning, yoloMode } = get()
+    const reasoningSummary = useThemeStore.getState().showReasoningStream ? 'detailed' : 'none'
     window.oco.prompt(activeTabId, requestId, {
       prompt: fullPrompt,
       projectPath: resolvedPath,
       sessionId: tab.sessionId || undefined,
       model: preferredModel || undefined,
       reasoningEffort: preferredReasoning || undefined,
+      reasoningSummary,
       autoApprove: true,
       yoloMode,
       addDirs: tab.additionalDirs.length > 0 ? tab.additionalDirs : undefined,
@@ -483,6 +560,17 @@ export const useSessionStore = create<State>((set, get) => ({
             }
             break
           }
+          case 'reasoning_chunk':
+            updated.currentActivity = 'Thinking...'
+            updated.messages = upsertReasoningMessage(updated.messages, event)
+            break
+          case 'reasoning_snapshot':
+            updated.currentActivity = 'Thinking...'
+            updated.messages = applyReasoningSnapshot(updated.messages, event)
+            break
+          case 'reasoning_complete':
+            updated.messages = completeReasoningMessages(updated.messages, event.itemId)
+            break
           case 'tool_call':
             updated.currentActivity = `Running ${event.toolName}...`
             updated.messages = [...updated.messages, { id: nextMsgId(), role: 'tool', content: '', toolName: event.toolName, toolInput: event.input || '', toolStatus: 'running', timestamp: Date.now() }]
