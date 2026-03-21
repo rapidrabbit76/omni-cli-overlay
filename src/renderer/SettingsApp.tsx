@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import SettingsPage from './components/SettingsPage'
 import { getColors, syncTokensToCss, useThemeStore } from './theme'
 import { useSessionStore } from './stores/sessionStore'
@@ -7,6 +7,7 @@ export default function SettingsApp() {
   const isDark = useThemeStore((s) => s.isDark)
   const setSystemTheme = useThemeStore((s) => s.setSystemTheme)
   const initStaticInfo = useSessionStore((s) => s.initStaticInfo)
+  const fetchModels = useSessionStore((s) => s.fetchModels)
 
   useEffect(() => {
     syncTokensToCss(getColors(isDark))
@@ -26,7 +27,8 @@ export default function SettingsApp() {
 
   useEffect(() => {
     void initStaticInfo()
-  }, [initStaticInfo])
+    void fetchModels()
+  }, [fetchModels, initStaticInfo])
 
   return <SettingsPage />
 }
