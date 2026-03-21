@@ -286,14 +286,28 @@ export class ControlPlane extends EventEmitter {
 
     try {
       let threadId: string
+      let isNewSession = false
       if (tab.sessionId && this.runManager.isThreadLoaded(tab.sessionId)) {
         threadId = tab.sessionId
       } else if (tab.sessionId) {
         threadId = await this.runManager.resumeThread(tab.sessionId, options)
         tab.sessionId = threadId
+        isNewSession = true
       } else {
         threadId = await this.runManager.startThread(options)
         tab.sessionId = threadId
+        isNewSession = true
+      }
+
+      if (isNewSession && !this.initRequestIds.has(requestId)) {
+        this.emit('event', tabId, {
+          type: 'session_init',
+          sessionId: threadId,
+          tools: [],
+          model: '',
+          version: 'unknown',
+        })
+        if (tab.status === 'connecting') this.setTabStatus(tabId, 'running')
       }
 
       const turnId = await this.runManager.startTurn(threadId, options.prompt)
