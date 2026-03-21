@@ -81,6 +81,7 @@ OCO는 [Clui CC](https://github.com/lcoutodemos/clui-cc)에서 많은 영감을 
 - **클립보드 붙여넣기** — 이미지를 입력창에 바로 붙여넣기
 - **터미널에서 열기** — 네이티브 터미널 창에서 세션 이어가기
 - **스킬 자동완성** — `$`를 입력하면 Codex 스킬 탐색 및 삽입
+- **음성 입력** — 로컬 Whisper(WhisperKit 또는 whisper-cpp)를 이용한 푸시투톡 음성 인식
 
 ### 커스터마이징
 
@@ -194,7 +195,11 @@ pnpm dev
 | `/plan` | Codex를 플랜 모드로 전환 |
 | `/init` | Codex에 AGENTS.md 생성 요청 |
 | `/fast` | 패스트 프리셋 토글 (gpt-5.4 + low) |
+| `/personality` | 커뮤니케이션 스타일 옵션 표시 |
+| `/permissions` | 승인 정책 설정 표시 |
+| `/mcp` | MCP 서버 설정 힌트 표시 |
 | `/exit` | OCO 창 숨기기 |
+| `/quit` | OCO 창 숨기기 |
 | `/help` | 전체 명령어 표시 |
 
 ## 아키텍처
@@ -218,11 +223,14 @@ pnpm dev
   "defaultDirectory": "~",
   "overlayOpacity": 1,
   "rememberPosition": false,
-  "fontPreset": "default"
+  "fontFamily": "-apple-system, BlinkMacSystemFont, ...",
+  "micEnabled": true,
+  "voiceLanguage": "",
+  "voiceKey": "Alt"
 }
 ```
 
-글로벌 단축키는 `~/.config/oco/shortcuts.json`에 별도 저장됩니다.
+글로벌 단축키는 `~/Library/Application Support/OCO/shortcut-settings.json`에 별도 저장됩니다.
 
 ## 기술 스택
 

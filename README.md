@@ -81,6 +81,7 @@ The goal was simple: bring the same floating-overlay UX to the Codex ecosystem, 
 - **Clipboard paste** — Paste images directly into the input
 - **Open in Terminal** — Resume any session in a native terminal window
 - **Skill autocompletion** — Type `$` to browse and insert Codex skills
+- **Voice input** — Push-to-talk transcription via local Whisper (WhisperKit or whisper-cpp)
 
 ### Customization
 
@@ -196,7 +197,11 @@ Type `/` in the input bar to access built-in commands:
 | `/plan` | Ask Codex to enter plan mode |
 | `/init` | Ask Codex to generate AGENTS.md |
 | `/fast` | Toggle fast preset (gpt-5.4 + low reasoning) |
+| `/personality` | Show communication personality options |
+| `/permissions` | Show approval policy settings |
+| `/mcp` | Show MCP server configuration hint |
 | `/exit` | Hide OCO window |
+| `/quit` | Hide OCO window |
 | `/help` | Show all commands |
 
 ## Architecture
@@ -220,11 +225,14 @@ Settings are stored at `~/.config/oco/settings.json`:
   "defaultDirectory": "~",
   "overlayOpacity": 1,
   "rememberPosition": false,
-  "fontPreset": "default"
+  "fontFamily": "-apple-system, BlinkMacSystemFont, ...",
+  "micEnabled": true,
+  "voiceLanguage": "",
+  "voiceKey": "Alt"
 }
 ```
 
-Global shortcuts are stored separately at `~/.config/oco/shortcuts.json`.
+Global shortcuts are stored separately at `~/Library/Application Support/OCO/shortcut-settings.json`.
 
 ## Tech Stack
 
