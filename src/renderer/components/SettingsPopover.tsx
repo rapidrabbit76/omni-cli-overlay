@@ -59,7 +59,7 @@ export function SettingsPopover() {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number; maxHeight?: number }>({ right: 0 })
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; maxHeight?: number }>({ left: 0 })
 
   const updatePos = useCallback(() => {
     if (!triggerRef.current) return
@@ -73,11 +73,11 @@ export function SettingsPopover() {
 
     if (isExpanded) {
       const top = rect.bottom + gap
-      setPos({ top, right: left, maxHeight: Math.max(120, window.innerHeight - top - margin) })
+      setPos({ top, left, maxHeight: Math.max(120, window.innerHeight - top - margin) })
       return
     }
 
-    setPos({ bottom: window.innerHeight - rect.top + gap, right: left, maxHeight: undefined })
+    setPos({ bottom: window.innerHeight - rect.top + gap, left, maxHeight: undefined })
   }, [isExpanded])
 
   useEffect(() => {
@@ -136,7 +136,7 @@ export function SettingsPopover() {
             position: 'fixed',
             ...(pos.top != null ? { top: pos.top } : {}),
             ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
-            left: pos.right,
+            left: pos.left,
             width: popoverWidth,
             pointerEvents: 'auto',
             background: colors.popoverBg,
