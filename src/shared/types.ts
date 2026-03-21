@@ -275,6 +275,7 @@ export const IPC = {
 
   RESIZE_HEIGHT: 'oco:resize-height',
   SET_WINDOW_WIDTH: 'oco:set-window-width',
+  SET_WINDOW_BOUNDS: 'oco:set-window-bounds',
   HIDE_WINDOW: 'oco:hide-window',
   WINDOW_SHOWN: 'oco:window-shown',
   SET_IGNORE_MOUSE_EVENTS: 'oco:set-ignore-mouse-events',

@@ -8,6 +8,7 @@ import { StatusBar } from './components/StatusBar'
 import { CommandPalette, type PaletteMode, type PaletteItem } from './components/CommandPalette'
 import { PopoverLayerProvider } from './components/PopoverLayer'
 import { useCodexEvents } from './hooks/useCodexEvents'
+import { FLOAT_LAYOUT_EVENT } from './hooks/useFloatTransition'
 import { useHealthReconciliation } from './hooks/useHealthReconciliation'
 import { useKeybindings } from './hooks/useKeybindings'
 import { useSessionStore, initSessionDefaults, getReasoningLevelsForModel } from './stores/sessionStore'
@@ -24,9 +25,12 @@ function measureAllUI(): { width: number; height: number } {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   let wMinX = Infinity, wMaxX = -Infinity
   els.forEach((el) => {
+    const element = el as HTMLElement
+    const isFloat = element.hasAttribute('data-oco-float')
+    const measureWhenHidden = element.hasAttribute('data-oco-measure-when-hidden')
+    if (window.getComputedStyle(element).visibility === 'hidden' && !measureWhenHidden) return
     const r = el.getBoundingClientRect()
     if (r.width === 0 && r.height === 0) return
-    const isFloat = (el as HTMLElement).hasAttribute('data-oco-float')
     minY = Math.min(minY, r.top)
     maxY = Math.max(maxY, r.bottom)
     if (!isFloat) {
@@ -59,8 +63,7 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     const applySize = (width: number, height: number) => {
       prevW = width
       prevH = height
-      window.oco.setWindowWidth(width)
-      window.oco.resizeHeight(height)
+      window.oco.setWindowBounds(width, height)
     }
 
     const sync = () => {
@@ -88,12 +91,16 @@ function useAutoWindowSize(ref: React.RefObject<HTMLDivElement | null>) {
     const mutObserver = new MutationObserver(sync)
     mutObserver.observe(document.body, { childList: true, subtree: true })
 
+    const onFloatLayout = () => sync()
+    window.addEventListener(FLOAT_LAYOUT_EVENT, onFloatLayout)
+
     const zoomMql = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
     zoomMql.addEventListener('change', sync)
 
     return () => {
       observer.disconnect()
       mutObserver.disconnect()
+      window.removeEventListener(FLOAT_LAYOUT_EVENT, onFloatLayout)
       zoomMql.removeEventListener('change', sync)
       cancelAnimationFrame(rafId)
       clearTimeout(shrinkTimer)

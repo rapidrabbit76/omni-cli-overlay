@@ -51,6 +51,7 @@ export interface OcoAPI {
   onAppSettingsChanged(callback: (settings: Record<string, unknown>) => void): () => void
   resizeHeight(height: number): void
   setWindowWidth(width: number): void
+  setWindowBounds(width: number, height: number): void
   animateHeight(from: number, to: number, durationMs: number): Promise<void>
   hideWindow(): void
   isVisible(): Promise<boolean>
@@ -115,6 +116,7 @@ const api: OcoAPI = {
   dragMove: (deltaX, deltaY) => ipcRenderer.send(IPC.DRAG_MOVE, deltaX, deltaY),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send(IPC.SET_IGNORE_MOUSE_EVENTS, ignore, options || {}),
   setWindowWidth: (width) => ipcRenderer.send(IPC.SET_WINDOW_WIDTH, width),
+  setWindowBounds: (width, height) => ipcRenderer.send(IPC.SET_WINDOW_BOUNDS, { width, height }),
   onEvent: (callback) => {
     const handler = (_e: Electron.IpcRendererEvent, tabId: string, event: NormalizedEvent) => callback(tabId, event)
     ipcRenderer.on('oco:normalized-event', handler)
