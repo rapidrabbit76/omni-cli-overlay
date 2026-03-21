@@ -577,7 +577,7 @@ export function InputBar() {
             filter={slashFilter!}
             selectedIndex={slashIndex}
             onSelect={handleSlashSelect}
-            anchorRect={wrapperRef.current?.getBoundingClientRect() ?? null}
+            anchorEl={wrapperRef.current}
             extraCommands={[]}
           />
         )}
@@ -586,7 +586,7 @@ export function InputBar() {
             items={filteredSkills}
             selectedIndex={skillIndex}
             onSelect={handleSkillSelect}
-            anchorRect={wrapperRef.current?.getBoundingClientRect() ?? null}
+            anchorEl={wrapperRef.current}
           />
         )}
       </AnimatePresence>
