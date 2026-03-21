@@ -94,11 +94,8 @@ export function SettingsPopover() {
 
   useEffect(() => {
     if (!open) return
-    let raf = 0
-    const tick = () => { updatePos(); raf = requestAnimationFrame(tick) }
-    raf = requestAnimationFrame(tick)
-    return () => { if (raf) cancelAnimationFrame(raf) }
-  }, [open, expandedUI, isExpanded, updatePos])
+    updatePos()
+  }, [open, updatePos])
 
   const handleToggle = () => {
     if (!open) updatePos()

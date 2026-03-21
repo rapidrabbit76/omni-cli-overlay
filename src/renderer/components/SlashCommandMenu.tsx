@@ -26,7 +26,7 @@ import {
 } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
-import { useFloatTransition } from '../hooks/useFloatTransition'
+import { FLOAT_LAYOUT_EVENT, useFloatTransition } from '../hooks/useFloatTransition'
 
 export interface SlashCommand {
   command: string
@@ -71,7 +71,7 @@ interface Props {
   filter: string
   selectedIndex: number
   onSelect: (cmd: SlashCommand) => void
-  anchorRect: DOMRect | null
+  anchorEl: HTMLElement | null
   extraCommands?: SlashCommand[]
 }
 
@@ -90,11 +90,12 @@ export function getFilteredCommandsWithExtras(filter: string, extraCommands: Sla
   return merged.filter((c) => c.command.startsWith(q))
 }
 
-export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, extraCommands = [] }: Props) {
+export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorEl, extraCommands = [] }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
   const popoverLayer = usePopoverLayer()
   const filtered = getFilteredCommandsWithExtras(filter, extraCommands)
   const colors = useColors()
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null)
 
   useEffect(() => {
     if (!listRef.current) return
@@ -102,7 +103,23 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
     item?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  const { mounted, visible } = useFloatTransition(filtered.length > 0 && !!anchorRect && !!popoverLayer)
+  const { mounted, visible, measuring } = useFloatTransition(filtered.length > 0 && !!anchorEl && !!popoverLayer)
+
+  useEffect(() => {
+    if (!anchorEl) {
+      setAnchorRect(null)
+      return
+    }
+    const updateAnchorRect = () => setAnchorRect(anchorEl.getBoundingClientRect())
+    updateAnchorRect()
+    if (!mounted) return
+    window.addEventListener('resize', updateAnchorRect)
+    window.addEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
+    return () => {
+      window.removeEventListener('resize', updateAnchorRect)
+      window.removeEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
+    }
+  }, [anchorEl, mounted])
 
   if (!mounted || !anchorRect || !popoverLayer) return null
 
@@ -110,6 +127,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
     <motion.div
       data-oco-ui
       data-oco-float
+      data-oco-measure-when-hidden={measuring ? 'true' : undefined}
       initial={{ opacity: 0, y: 4 }}
       animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
       exit={{ opacity: 0, y: 4 }}
@@ -119,7 +137,7 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
         bottom: window.innerHeight - anchorRect.top + 4,
         left: anchorRect.left + 12,
         right: window.innerWidth - anchorRect.right + 12,
-        pointerEvents: 'auto',
+        pointerEvents: visible ? 'auto' as const : 'none' as const,
         visibility: visible ? 'visible' as const : 'hidden' as const,
       }}
     >
@@ -129,7 +147,8 @@ export function SlashCommandMenu({ filter, selectedIndex, onSelect, anchorRect, 
         style={{
           maxHeight: 220,
           background: colors.popoverBg,
-          backdropFilter: visible ? 'blur(20px)' : 'none',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           border: `1px solid ${colors.popoverBorder}`,
           boxShadow: colors.popoverShadow,
         }}

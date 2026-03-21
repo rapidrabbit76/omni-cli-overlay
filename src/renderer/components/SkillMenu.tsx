@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Sparkle } from '@phosphor-icons/react'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
-import { useFloatTransition } from '../hooks/useFloatTransition'
+import { FLOAT_LAYOUT_EVENT, useFloatTransition } from '../hooks/useFloatTransition'
 
 interface SkillEntry {
   name: string
@@ -18,13 +18,14 @@ interface Props {
   items: SkillEntry[]
   selectedIndex: number
   onSelect: (skill: SkillEntry) => void
-  anchorRect: DOMRect | null
+  anchorEl: HTMLElement | null
 }
 
-export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props) {
+export function SkillMenu({ items, selectedIndex, onSelect, anchorEl }: Props) {
   const listRef = useRef<HTMLDivElement>(null)
   const popoverLayer = usePopoverLayer()
   const colors = useColors()
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null)
 
   useEffect(() => {
     if (!listRef.current) return
@@ -32,7 +33,23 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
     item?.scrollIntoView({ block: 'nearest' })
   }, [selectedIndex])
 
-  const { mounted, visible } = useFloatTransition(items.length > 0 && !!anchorRect && !!popoverLayer)
+  const { mounted, visible, measuring } = useFloatTransition(items.length > 0 && !!anchorEl && !!popoverLayer)
+
+  useEffect(() => {
+    if (!anchorEl) {
+      setAnchorRect(null)
+      return
+    }
+    const updateAnchorRect = () => setAnchorRect(anchorEl.getBoundingClientRect())
+    updateAnchorRect()
+    if (!mounted) return
+    window.addEventListener('resize', updateAnchorRect)
+    window.addEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
+    return () => {
+      window.removeEventListener('resize', updateAnchorRect)
+      window.removeEventListener(FLOAT_LAYOUT_EVENT, updateAnchorRect)
+    }
+  }, [anchorEl, mounted])
 
   if (!mounted || !anchorRect || !popoverLayer) return null
 
@@ -40,6 +57,7 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
     <motion.div
       data-oco-ui
       data-oco-float
+      data-oco-measure-when-hidden={measuring ? 'true' : undefined}
       initial={{ opacity: 0, y: 4 }}
       animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
       exit={{ opacity: 0, y: 4 }}
@@ -49,7 +67,7 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
         bottom: window.innerHeight - anchorRect.top + 4,
         left: anchorRect.left + 12,
         right: window.innerWidth - anchorRect.right + 12,
-        pointerEvents: 'auto',
+        pointerEvents: visible ? 'auto' as const : 'none' as const,
         visibility: visible ? 'visible' as const : 'hidden' as const,
       }}
     >
@@ -59,7 +77,8 @@ export function SkillMenu({ items, selectedIndex, onSelect, anchorRect }: Props)
         style={{
           maxHeight: 220,
           background: colors.popoverBg,
-          backdropFilter: visible ? 'blur(20px)' : 'none',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
           border: `1px solid ${colors.popoverBorder}`,
           boxShadow: colors.popoverShadow,
         }}

@@ -5,7 +5,7 @@ import { Terminal, CaretDown, Check, FolderOpen, Plus, X, Lightning } from '@pho
 import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
-import { useFloatTransition } from '../hooks/useFloatTransition'
+import { FLOAT_LAYOUT_EVENT, useFloatTransition } from '../hooks/useFloatTransition'
 
 /* ─── Model Picker (inline — tightly coupled to StatusBar) ─── */
 
@@ -26,7 +26,7 @@ function ModelPicker() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ bottom: 0, left: 0 })
-  const { mounted: floatMounted, visible: floatVisible } = useFloatTransition(open)
+  const { mounted: floatMounted, visible: floatVisible, measuring: floatMeasuring } = useFloatTransition(open)
 
   const isBusy = tab?.status === 'running' || tab?.status === 'connecting'
 
@@ -51,7 +51,16 @@ function ModelPicker() {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  useEffect(() => { if (floatVisible) updatePos() }, [floatVisible, updatePos])
+  useEffect(() => {
+    if (!open) return
+    const update = () => updatePos()
+    window.addEventListener('resize', update)
+    window.addEventListener(FLOAT_LAYOUT_EVENT, update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener(FLOAT_LAYOUT_EVENT, update)
+    }
+  }, [open, updatePos])
 
   const handleToggle = () => {
     if (isBusy) return
@@ -101,6 +110,8 @@ function ModelPicker() {
         <motion.div
           ref={popoverRef}
           data-oco-ui
+          data-oco-float
+          data-oco-measure-when-hidden={floatMeasuring ? 'true' : undefined}
           initial={{ opacity: 0, y: 4 }}
           animate={floatVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
           exit={{ opacity: 0, y: 4 }}
@@ -111,10 +122,10 @@ function ModelPicker() {
             bottom: pos.bottom,
             left: pos.left,
             width: 220,
-            pointerEvents: 'auto',
+            pointerEvents: floatVisible ? 'auto' as const : 'none' as const,
             background: colors.popoverBg,
-            backdropFilter: floatVisible ? 'blur(20px)' : 'none',
-            WebkitBackdropFilter: floatVisible ? 'blur(20px)' : 'none',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             visibility: floatVisible ? 'visible' as const : 'hidden' as const,
             boxShadow: colors.popoverShadow,
             border: `1px solid ${colors.popoverBorder}`,
@@ -202,8 +213,20 @@ function UsageIndicator() {
     return sid ? s.tokenUsageByThread[sid] ?? null : null
   })
   const colors = useColors()
+  const popoverLayer = usePopoverLayer()
   const [now, setNow] = useState(Date.now())
   const [hover, setHover] = useState(false)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ bottom: 0, left: 0 })
+
+  useEffect(() => {
+    if (!hover || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setPos({
+      bottom: window.innerHeight - rect.top + 8,
+      left: rect.left + rect.width / 2,
+    })
+  }, [hover])
 
   useEffect(() => {
     if (!rateLimits?.resetsAt) return
@@ -248,6 +271,7 @@ function UsageIndicator() {
 
   return (
     <div
+      ref={triggerRef}
       className="relative flex items-center gap-1.5"
       style={{ cursor: 'default' }}
       onMouseEnter={() => setHover(true)}
@@ -255,13 +279,15 @@ function UsageIndicator() {
     >
       <RingGauge percent={ctxPct} color={ctxColor} />
 
-      {hover && (
+      {hover && popoverLayer && createPortal(
         <div
           data-no-drag
+          data-oco-ui
+          data-oco-float
           style={{
-            position: 'absolute',
-            bottom: 24,
-            left: '50%',
+            position: 'fixed',
+            bottom: pos.bottom,
+            left: pos.left,
             transform: 'translateX(-50%)',
             background: colors.popoverBg,
             backdropFilter: 'blur(16px)',
@@ -280,9 +306,10 @@ function UsageIndicator() {
           }}
         >
           {tooltipLines.map((line, i) =>
-            line === '' ? <div key={i} style={{ height: 4 }} /> : <div key={i}>{line}</div>,
+            line === '' ? <div key={`empty-${i}`} style={{ height: 4 }} /> : <div key={`line-${i}`}>{line}</div>,
           )}
-        </div>
+        </div>,
+        popoverLayer
       )}
     </div>
   )
