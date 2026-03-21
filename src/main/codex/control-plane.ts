@@ -310,7 +310,7 @@ export class ControlPlane extends EventEmitter {
         if (tab.status === 'connecting') this.setTabStatus(tabId, 'running')
       }
 
-      const turnId = await this.runManager.startTurn(threadId, options.prompt)
+      const turnId = await this.runManager.startTurn(threadId, options.prompt, { reasoningSummary: options.reasoningSummary })
 
       let resolve!: (value: void) => void
       let reject!: (reason: Error) => void
