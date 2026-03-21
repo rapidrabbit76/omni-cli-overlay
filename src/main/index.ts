@@ -10,7 +10,7 @@ const execAsync = promisify(exec)
 import { ControlPlane } from './codex/control-plane'
 import { log as _log, LOG_FILE, flushLogs } from './logger'
 import { DEFAULT_SHORTCUT_SETTINGS, IPC } from '../shared/types'
-import type { RunOptions, NormalizedEvent, EnrichedError, ShortcutSettings, ModelInfo } from '../shared/types'
+import type { RunOptions, NormalizedEvent, EnrichedError, ShortcutSettings, ModelInfo, RateLimitInfo, TokenUsageInfo } from '../shared/types'
 import { loadShortcutSettings, registerShortcutSettings, saveShortcutSettings } from './shortcut-settings'
 
 const DEBUG_MODE = process.env.OCO_DEBUG === '1'
@@ -51,6 +51,36 @@ controlPlane.on('tab-status-change', (tabId: string, newStatus: string, oldStatu
 
 controlPlane.on('error', (tabId: string, error: EnrichedError) => {
   broadcast('oco:enriched-error', tabId, error)
+})
+
+controlPlane.on('tokenUsageUpdated', (params: unknown) => {
+  const p = params as { threadId?: string; turnId?: string; tokenUsage?: { total?: { totalTokens?: number; inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; reasoningOutputTokens?: number }; modelContextWindow?: number | null } }
+  if (!p.tokenUsage?.total) return
+  const t = p.tokenUsage.total
+  broadcast(IPC.TOKEN_USAGE_UPDATED, {
+    threadId: p.threadId || '',
+    turnId: p.turnId || '',
+    totalTokens: t.totalTokens || 0,
+    inputTokens: t.inputTokens || 0,
+    outputTokens: t.outputTokens || 0,
+    cachedInputTokens: t.cachedInputTokens || 0,
+    reasoningOutputTokens: t.reasoningOutputTokens || 0,
+    modelContextWindow: p.tokenUsage.modelContextWindow ?? null,
+  } satisfies TokenUsageInfo)
+})
+
+controlPlane.on('rateLimitsUpdated', (params: unknown) => {
+  const p = params as { rateLimits?: { primary?: { usedPercent?: number; windowDurationMins?: number | null; resetsAt?: number | null }; planType?: string | null; credits?: { hasCredits?: boolean; unlimited?: boolean } } }
+  if (!p.rateLimits) return
+  const s = p.rateLimits
+  broadcast(IPC.RATE_LIMITS_UPDATED, {
+    usedPercent: s.primary?.usedPercent ?? 0,
+    windowDurationMins: s.primary?.windowDurationMins ?? null,
+    resetsAt: s.primary?.resetsAt ?? null,
+    planType: s.planType ?? null,
+    hasCredits: s.credits?.hasCredits ?? true,
+    unlimited: s.credits?.unlimited ?? false,
+  } satisfies RateLimitInfo)
 })
 
 function createWindow(): void {
@@ -675,6 +705,24 @@ ipcMain.handle(IPC.LIST_MODELS, async (): Promise<ModelInfo[]> => {
   } catch (err) {
     log(`model/list RPC failed, using fallback: ${(err as Error).message}`)
     return FALLBACK_MODELS
+  }
+})
+
+ipcMain.handle(IPC.GET_RATE_LIMITS, async (): Promise<RateLimitInfo | null> => {
+  try {
+    const resp = await controlPlane.getRateLimits()
+    const s = resp.rateLimits
+    return {
+      usedPercent: s.primary?.usedPercent ?? 0,
+      windowDurationMins: s.primary?.windowDurationMins ?? null,
+      resetsAt: s.primary?.resetsAt ?? null,
+      planType: s.planType ?? null,
+      hasCredits: s.credits?.hasCredits ?? true,
+      unlimited: s.credits?.unlimited ?? false,
+    }
+  } catch (err) {
+    log(`account/rateLimits/read RPC failed: ${(err as Error).message}`)
+    return null
   }
 })
 

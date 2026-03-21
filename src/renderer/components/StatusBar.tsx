@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Terminal, CaretDown, Check, FolderOpen, Plus, X } from '@phosphor-icons/react'
+import { Terminal, CaretDown, Check, FolderOpen, Plus, X, Lightning } from '@phosphor-icons/react'
 import { useSessionStore, getReasoningLevelsForModel } from '../stores/sessionStore'
 import { usePopoverLayer } from './PopoverLayer'
 import { useColors } from '../theme'
@@ -175,6 +175,116 @@ function ModelPicker() {
         popoverLayer,
       )}
     </>
+  )
+}
+
+const RING_SIZE = 18
+const RING_STROKE = 2.5
+const RING_R = (RING_SIZE - RING_STROKE) / 2
+const RING_C = 2 * Math.PI * RING_R
+
+function RingGauge({ percent, color }: { percent: number; color: string }) {
+  const colors = useColors()
+  const clamped = Math.min(100, Math.max(0, percent))
+  const offset = RING_C - (clamped / 100) * RING_C
+  return (
+    <svg width={RING_SIZE} height={RING_SIZE} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+      <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R} fill="none" stroke={colors.surfaceSecondary} strokeWidth={RING_STROKE} />
+      <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_R} fill="none" stroke={color} strokeWidth={RING_STROKE} strokeDasharray={RING_C} strokeDashoffset={offset} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function UsageIndicator() {
+  const rateLimits = useSessionStore((s) => s.rateLimits)
+  const tokenUsage = useSessionStore((s) => {
+    const sid = s.tabs.find((t) => t.id === s.activeTabId)?.sessionId
+    return sid ? s.tokenUsageByThread[sid] ?? null : null
+  })
+  const colors = useColors()
+  const [now, setNow] = useState(Date.now())
+  const [hover, setHover] = useState(false)
+
+  useEffect(() => {
+    if (!rateLimits?.resetsAt) return
+    const interval = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(interval)
+  }, [rateLimits?.resetsAt])
+
+  if (!rateLimits) return null
+
+  const pct = rateLimits.usedPercent || 0
+  let ringColor = '#4ade80'
+  if (pct >= 60) ringColor = '#facc15'
+  if (pct >= 85) ringColor = '#f87171'
+
+  const ctxWindow = tokenUsage?.modelContextWindow && tokenUsage.modelContextWindow > 0
+    ? tokenUsage.modelContextWindow
+    : null
+  const ctxPct = ctxWindow && tokenUsage
+    ? Math.min(100, (tokenUsage.inputTokens / ctxWindow) * 100)
+    : 0
+  let ctxColor = '#4ade80'
+  if (ctxPct >= 60) ctxColor = '#facc15'
+  if (ctxPct >= 85) ctxColor = '#f87171'
+
+  const tooltipLines: string[] = []
+  tooltipLines.push(`Rate limit  ${pct.toFixed(1)}%`)
+  if (rateLimits.resetsAt) {
+    const mins = Math.max(0, Math.ceil((rateLimits.resetsAt - now) / 60000))
+    tooltipLines.push(`Resets in ${mins}m`)
+  }
+  if (rateLimits.planType) tooltipLines.push(`Plan: ${rateLimits.planType}`)
+  tooltipLines.push('')
+  if (tokenUsage && ctxWindow) {
+    tooltipLines.push(`Context  ${Math.round(ctxPct)}%  (${tokenUsage.inputTokens.toLocaleString()} / ${ctxWindow.toLocaleString()})`)
+  } else if (tokenUsage) {
+    tooltipLines.push(`Context  —`)
+  }
+  if (tokenUsage) {
+    tooltipLines.push(`In: ${tokenUsage.inputTokens.toLocaleString()}  (cached ${tokenUsage.cachedInputTokens.toLocaleString()})`)
+    tooltipLines.push(`Out: ${tokenUsage.outputTokens.toLocaleString()}  (reasoning ${tokenUsage.reasoningOutputTokens.toLocaleString()})`)
+  }
+
+  return (
+    <div
+      className="relative flex items-center gap-1.5"
+      style={{ cursor: 'default' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <RingGauge percent={ctxPct} color={ctxColor} />
+
+      {hover && (
+        <div
+          data-no-drag
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: colors.popoverBg,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: `1px solid ${colors.popoverBorder}`,
+            borderRadius: 8,
+            padding: '6px 10px',
+            whiteSpace: 'pre',
+            fontSize: 10,
+            lineHeight: 1.5,
+            color: colors.textSecondary,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            zIndex: 200,
+            pointerEvents: 'none',
+            minWidth: 180,
+          }}
+        >
+          {tooltipLines.map((line, i) =>
+            line === '' ? <div key={i} style={{ height: 4 }} /> : <div key={i}>{line}</div>,
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -364,6 +474,8 @@ export function StatusBar() {
         <span style={{ color: colors.textMuted, fontSize: 10 }}>|</span>
 
         <ModelPicker />
+
+        <UsageIndicator />
 
       </div>
 

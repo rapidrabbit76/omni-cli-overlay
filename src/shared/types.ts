@@ -293,6 +293,9 @@ export const IPC = {
   TRANSCRIBE_AUDIO: 'oco:transcribe-audio',
   LIST_SKILLS: 'oco:list-skills',
   LIST_MODELS: 'oco:list-models',
+  GET_RATE_LIMITS: 'oco:get-rate-limits',
+  TOKEN_USAGE_UPDATED: 'oco:token-usage-updated',
+  RATE_LIMITS_UPDATED: 'oco:rate-limits-updated',
   DRAG_MOVE: 'oco:drag-move',
 
   STREAM_EVENT: 'oco:stream-event',
@@ -304,6 +307,26 @@ export const IPC = {
  * Convert an Electron-style shortcut string (e.g. "Alt+Space", "CommandOrControl+Shift+K")
  * into a human-readable label with platform symbols (e.g. "⌥ Space", "⌘ ⇧ K").
  */
+export interface RateLimitInfo {
+  usedPercent: number
+  windowDurationMins: number | null
+  resetsAt: number | null
+  planType: string | null
+  hasCredits: boolean
+  unlimited: boolean
+}
+
+export interface TokenUsageInfo {
+  threadId: string
+  turnId: string
+  totalTokens: number
+  inputTokens: number
+  outputTokens: number
+  cachedInputTokens: number
+  reasoningOutputTokens: number
+  modelContextWindow: number | null
+}
+
 export interface ModelInfo {
   id: string
   label: string
