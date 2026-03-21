@@ -967,7 +967,7 @@ function VoiceInputRow({ enabled, voiceKey, onChange, colors, rowClassName, rowB
                     <span className="text-[11px]">Version</span>
                   </div>
                   <span className="text-[10px]" style={{ color: colors.textSecondary }}>
-                    2026.03.20
+                    2026.03.22
                   </span>
                 </div>
               </div>

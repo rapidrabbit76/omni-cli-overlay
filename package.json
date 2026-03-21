@@ -1,6 +1,6 @@
 {
   "name": "openai-codex-overlay",
-  "version": "2026.03.20",
+  "version": "2026.03.22",
   "description": "OCO — OpenAI Codex Overlay",
   "license": "MIT",
   "main": "dist/main/index.js",

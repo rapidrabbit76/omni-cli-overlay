@@ -48,6 +48,7 @@ Desktop.ini
 # Temporary files
 *.tmp
 *.bak
+electron.vite.config.*.mjs
 
 src/shared/codex-protocol/
 .omc/
